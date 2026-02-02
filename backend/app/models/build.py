@@ -33,3 +33,4 @@ class Build(Base):
     vehicle = relationship("Vehicle")
     engine = relationship("Engine")
     transmission = relationship("Transmission")
+    chat_messages = relationship("ChatMessage", back_populates="build", order_by="ChatMessage.created_at")

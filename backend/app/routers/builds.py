@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
@@ -8,9 +9,11 @@ from app.models.vehicle import Vehicle
 from app.models.transmission import Transmission
 from app.models.user import User
 from app.schemas.build import BuildCreate, BuildResponse, BuildUpdate, BuildList, BuildExport
+from app.services.pdf_service import PDFService
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/builds", tags=["Builds"])
+pdf_service = PDFService()
 
 
 @router.get("", response_model=BuildList)
@@ -193,6 +196,91 @@ async def export_build(
             "bellhousing_pattern": transmission.bellhousing_pattern,
         } if transmission else None,
         recommendations=recommendations,
+    )
+
+
+@router.get("/{build_id}/export/pdf")
+async def export_build_pdf(
+    build_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export build as a PDF report."""
+    # Get build with related entities
+    result = await db.execute(
+        select(Build).where(Build.id == build_id, Build.user_id == current_user.id)
+    )
+    build = result.scalar_one_or_none()
+    if not build:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Build not found",
+        )
+
+    # Load related entities
+    vehicle_result = await db.execute(select(Vehicle).where(Vehicle.id == build.vehicle_id))
+    vehicle = vehicle_result.scalar_one_or_none()
+
+    engine_result = await db.execute(select(Engine).where(Engine.id == build.engine_id))
+    engine = engine_result.scalar_one_or_none()
+
+    transmission = None
+    if build.transmission_id:
+        trans_result = await db.execute(
+            select(Transmission).where(Transmission.id == build.transmission_id)
+        )
+        transmission = trans_result.scalar_one_or_none()
+
+    # Generate recommendations
+    recommendations = _generate_recommendations(engine, build)
+
+    # Create export data
+    export_data = BuildExport(
+        build=build,
+        vehicle={
+            "id": vehicle.id,
+            "year": vehicle.year,
+            "make": vehicle.make,
+            "model": vehicle.model,
+            "trim": vehicle.trim,
+        } if vehicle else {},
+        engine={
+            "id": engine.id,
+            "make": engine.make,
+            "model": engine.model,
+            "variant": engine.variant,
+            "power_hp": engine.power_hp,
+            "torque_lb_ft": engine.torque_lb_ft,
+            "fuel_pressure_psi": engine.fuel_pressure_psi,
+            "fuel_flow_lph": engine.fuel_flow_lph,
+            "cooling_btu_min": engine.cooling_btu_min,
+        } if engine else {},
+        transmission={
+            "id": transmission.id,
+            "make": transmission.make,
+            "model": transmission.model,
+            "bellhousing_pattern": transmission.bellhousing_pattern,
+        } if transmission else None,
+        recommendations=recommendations,
+    )
+
+    # Generate PDF
+    try:
+        pdf_bytes = await pdf_service.generate_build_report(export_data)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        )
+
+    # Generate filename
+    vehicle_name = f"{vehicle.year}_{vehicle.make}_{vehicle.model}" if vehicle else "build"
+    filename = f"swapspec_{vehicle_name}_report.pdf".replace(" ", "_")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

@@ -4,10 +4,16 @@ from app.config import get_settings
 
 settings = get_settings()
 
+_connect_args = {}
+if "asyncpg" in settings.database_url:
+    # Disable prepared statement caching for pgBouncer (Supabase pooler)
+    _connect_args = {"statement_cache_size": 0}
+
 engine = create_async_engine(
     settings.database_url,
     echo=False,
     future=True,
+    connect_args=_connect_args,
 )
 
 async_session_maker = async_sessionmaker(
