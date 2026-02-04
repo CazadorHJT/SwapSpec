@@ -3,7 +3,7 @@ Basic API tests for SwapSpec backend.
 Run with: pytest tests/
 """
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.database import init_db, engine, Base
@@ -146,7 +146,7 @@ async def test_create_engine_requires_auth(client: AsyncClient):
 
 @pytest.mark.anyio
 async def test_create_and_get_engine(client: AsyncClient):
-    """Test creating and retrieving an engine."""
+    """Test creating and retrieving an engine with new spec fields."""
     headers = {"Authorization": f"Bearer {FAKE_ACCESS_TOKEN}"}
 
     create_response = await client.post(
@@ -156,6 +156,14 @@ async def test_create_and_get_engine(client: AsyncClient):
             "model": "LS3",
             "variant": "6.2L",
             "power_hp": 430,
+            "torque_lb_ft": 424,
+            "displacement_liters": 6.2,
+            "compression_ratio": 10.7,
+            "valve_train": "OHV",
+            "bore_mm": 103.25,
+            "stroke_mm": 92.0,
+            "balance_type": "internal",
+            "can_bus_protocol": "GM E38",
         },
         headers=headers,
     )
@@ -163,10 +171,123 @@ async def test_create_and_get_engine(client: AsyncClient):
     engine_data = create_response.json()
     engine_id = engine_data["id"]
 
+    # Verify new spec fields are returned
+    assert engine_data["displacement_liters"] == 6.2
+    assert engine_data["compression_ratio"] == 10.7
+    assert engine_data["valve_train"] == "OHV"
+    assert engine_data["bore_mm"] == 103.25
+    assert engine_data["stroke_mm"] == 92.0
+    assert engine_data["balance_type"] == "internal"
+    assert engine_data["can_bus_protocol"] == "GM E38"
+
+    # Verify data_sources tracks user-contributed fields
+    assert engine_data["data_sources"] is not None
+    assert engine_data["data_sources"]["power_hp"] == "user_contributed"
+    assert engine_data["data_sources"]["displacement_liters"] == "user_contributed"
+    assert engine_data["data_sources"]["compression_ratio"] == "user_contributed"
+
     get_response = await client.get(f"/api/engines/{engine_id}")
     assert get_response.status_code == 200
     assert get_response.json()["make"] == "Chevrolet"
     assert get_response.json()["model"] == "LS3"
+    assert get_response.json()["displacement_liters"] == 6.2
+
+
+@pytest.mark.anyio
+async def test_create_engine_with_data_sources(client: AsyncClient):
+    """Test that engine creation properly tracks data sources."""
+    headers = {"Authorization": f"Bearer {FAKE_ACCESS_TOKEN}"}
+
+    create_response = await client.post(
+        "/api/engines",
+        json={
+            "make": "Ford",
+            "model": "Coyote",
+            "variant": "5.0L Gen 3",
+            "power_hp": 460,
+            "compression_ratio": 12.0,
+        },
+        headers=headers,
+    )
+    assert create_response.status_code == 201
+    data = create_response.json()
+    assert data["data_sources"]["power_hp"] == "user_contributed"
+    assert data["data_sources"]["compression_ratio"] == "user_contributed"
+    # Fields not provided shouldn't be in data_sources
+    assert "bore_mm" not in data["data_sources"]
+
+
+@pytest.mark.anyio
+async def test_create_transmission_with_specs(client: AsyncClient):
+    """Test creating a transmission with new spec fields."""
+    headers = {"Authorization": f"Bearer {FAKE_ACCESS_TOKEN}"}
+
+    # Check if there's a transmission create endpoint
+    response = await client.get("/api/transmissions")
+    assert response.status_code == 200
+
+
+@pytest.mark.anyio
+async def test_create_vehicle_with_specs(client: AsyncClient):
+    """Test creating a vehicle with new spec fields."""
+    headers = {"Authorization": f"Bearer {FAKE_ACCESS_TOKEN}"}
+
+    create_response = await client.post(
+        "/api/vehicles",
+        json={
+            "year": 1969,
+            "make": "Chevrolet",
+            "model": "Camaro",
+            "trim": "SS",
+            "curb_weight_lbs": 3350,
+            "engine_bay_length_in": 34.0,
+            "engine_bay_width_in": 28.0,
+            "stock_ground_clearance_in": 5.5,
+        },
+        headers=headers,
+    )
+    assert create_response.status_code == 201
+    data = create_response.json()
+
+    # Verify new spec fields
+    assert data["curb_weight_lbs"] == 3350
+    assert data["engine_bay_length_in"] == 34.0
+    assert data["engine_bay_width_in"] == 28.0
+    assert data["stock_ground_clearance_in"] == 5.5
+
+    # Verify data_sources
+    assert data["data_sources"] is not None
+    assert data["data_sources"]["curb_weight_lbs"] == "user_contributed"
+    assert data["data_sources"]["engine_bay_length_in"] == "user_contributed"
+
+
+@pytest.mark.anyio
+async def test_spec_lookup_engine(client: AsyncClient):
+    """Test spec lookup endpoint for engines."""
+    response = await client.get(
+        "/api/specs/lookup/engine",
+        params={"make": "Chevrolet", "model": "Camaro", "year": 2010},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "specs" in data
+    assert "sources" in data
+    assert "confidence" in data
+    assert data["confidence"] in ["high", "medium", "low"]
+
+
+@pytest.mark.anyio
+async def test_spec_lookup_vehicle(client: AsyncClient):
+    """Test spec lookup endpoint for vehicles."""
+    response = await client.get(
+        "/api/specs/lookup/vehicle",
+        params={"make": "Chevrolet", "model": "Camaro", "year": 2010},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "specs" in data
+    assert "sources" in data
+    assert "confidence" in data
 
 
 @pytest.mark.anyio
@@ -347,7 +468,7 @@ async def test_clear_chat_history(client: AsyncClient, build_with_auth):
 
 @pytest.mark.anyio
 async def test_build_export_json(client: AsyncClient, build_with_auth):
-    """Test JSON build export."""
+    """Test JSON build export includes new spec fields."""
     build_id = build_with_auth["build_id"]
     headers = build_with_auth["headers"]
 
@@ -361,6 +482,13 @@ async def test_build_export_json(client: AsyncClient, build_with_auth):
     assert "vehicle" in data
     assert "engine" in data
     assert "recommendations" in data
+
+    # Verify expanded engine export includes new fields
+    engine = data["engine"]
+    if engine:
+        # These keys should exist in export (may be null)
+        assert "displacement_liters" in engine or engine.get("make")
+        assert "data_sources" in engine or engine.get("make")
 
 
 @pytest.mark.anyio

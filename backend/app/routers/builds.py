@@ -134,6 +134,71 @@ async def update_build(
     return build
 
 
+def _build_engine_export(engine: Engine) -> dict:
+    """Build engine export dict with expanded spec fields."""
+    if not engine:
+        return {}
+    return {
+        "id": engine.id,
+        "make": engine.make,
+        "model": engine.model,
+        "variant": engine.variant,
+        "power_hp": engine.power_hp,
+        "torque_lb_ft": engine.torque_lb_ft,
+        "fuel_pressure_psi": engine.fuel_pressure_psi,
+        "fuel_flow_lph": engine.fuel_flow_lph,
+        "cooling_btu_min": engine.cooling_btu_min,
+        "displacement_liters": engine.displacement_liters,
+        "compression_ratio": engine.compression_ratio,
+        "valve_train": engine.valve_train,
+        "bore_mm": engine.bore_mm,
+        "stroke_mm": engine.stroke_mm,
+        "balance_type": engine.balance_type,
+        "redline_rpm": engine.redline_rpm,
+        "can_bus_protocol": engine.can_bus_protocol,
+        "oil_pan_depth_in": engine.oil_pan_depth_in,
+        "data_sources": engine.data_sources,
+    }
+
+
+def _build_vehicle_export(vehicle: Vehicle) -> dict:
+    """Build vehicle export dict with expanded spec fields."""
+    if not vehicle:
+        return {}
+    return {
+        "id": vehicle.id,
+        "year": vehicle.year,
+        "make": vehicle.make,
+        "model": vehicle.model,
+        "trim": vehicle.trim,
+        "curb_weight_lbs": vehicle.curb_weight_lbs,
+        "engine_bay_length_in": vehicle.engine_bay_length_in,
+        "engine_bay_width_in": vehicle.engine_bay_width_in,
+        "engine_bay_height_in": vehicle.engine_bay_height_in,
+        "stock_ground_clearance_in": vehicle.stock_ground_clearance_in,
+        "driveline_angle_deg": vehicle.driveline_angle_deg,
+        "data_sources": vehicle.data_sources,
+    }
+
+
+def _build_transmission_export(transmission: Transmission) -> dict | None:
+    """Build transmission export dict with expanded spec fields."""
+    if not transmission:
+        return None
+    return {
+        "id": transmission.id,
+        "make": transmission.make,
+        "model": transmission.model,
+        "bellhousing_pattern": transmission.bellhousing_pattern,
+        "trans_type": transmission.trans_type,
+        "gear_count": transmission.gear_count,
+        "gear_ratios": transmission.gear_ratios,
+        "max_torque_capacity_lb_ft": transmission.max_torque_capacity_lb_ft,
+        "input_shaft_spline": transmission.input_shaft_spline,
+        "data_sources": transmission.data_sources,
+    }
+
+
 @router.get("/{build_id}/export", response_model=BuildExport)
 async def export_build(
     build_id: str,
@@ -167,34 +232,13 @@ async def export_build(
         transmission = trans_result.scalar_one_or_none()
 
     # Generate recommendations based on build data
-    recommendations = _generate_recommendations(engine, build)
+    recommendations = _generate_recommendations(engine, vehicle, transmission, build)
 
     return BuildExport(
         build=build,
-        vehicle={
-            "id": vehicle.id,
-            "year": vehicle.year,
-            "make": vehicle.make,
-            "model": vehicle.model,
-            "trim": vehicle.trim,
-        } if vehicle else {},
-        engine={
-            "id": engine.id,
-            "make": engine.make,
-            "model": engine.model,
-            "variant": engine.variant,
-            "power_hp": engine.power_hp,
-            "torque_lb_ft": engine.torque_lb_ft,
-            "fuel_pressure_psi": engine.fuel_pressure_psi,
-            "fuel_flow_lph": engine.fuel_flow_lph,
-            "cooling_btu_min": engine.cooling_btu_min,
-        } if engine else {},
-        transmission={
-            "id": transmission.id,
-            "make": transmission.make,
-            "model": transmission.model,
-            "bellhousing_pattern": transmission.bellhousing_pattern,
-        } if transmission else None,
+        vehicle=_build_vehicle_export(vehicle),
+        engine=_build_engine_export(engine),
+        transmission=_build_transmission_export(transmission),
         recommendations=recommendations,
     )
 
@@ -232,35 +276,14 @@ async def export_build_pdf(
         transmission = trans_result.scalar_one_or_none()
 
     # Generate recommendations
-    recommendations = _generate_recommendations(engine, build)
+    recommendations = _generate_recommendations(engine, vehicle, transmission, build)
 
     # Create export data
     export_data = BuildExport(
         build=build,
-        vehicle={
-            "id": vehicle.id,
-            "year": vehicle.year,
-            "make": vehicle.make,
-            "model": vehicle.model,
-            "trim": vehicle.trim,
-        } if vehicle else {},
-        engine={
-            "id": engine.id,
-            "make": engine.make,
-            "model": engine.model,
-            "variant": engine.variant,
-            "power_hp": engine.power_hp,
-            "torque_lb_ft": engine.torque_lb_ft,
-            "fuel_pressure_psi": engine.fuel_pressure_psi,
-            "fuel_flow_lph": engine.fuel_flow_lph,
-            "cooling_btu_min": engine.cooling_btu_min,
-        } if engine else {},
-        transmission={
-            "id": transmission.id,
-            "make": transmission.make,
-            "model": transmission.model,
-            "bellhousing_pattern": transmission.bellhousing_pattern,
-        } if transmission else None,
+        vehicle=_build_vehicle_export(vehicle),
+        engine=_build_engine_export(engine),
+        transmission=_build_transmission_export(transmission),
         recommendations=recommendations,
     )
 
@@ -284,8 +307,13 @@ async def export_build_pdf(
     )
 
 
-def _generate_recommendations(engine: Engine, build: Build) -> list[str]:
-    """Generate basic recommendations based on engine specs and build data."""
+def _generate_recommendations(
+    engine: Engine,
+    vehicle: Vehicle,
+    transmission: Transmission,
+    build: Build,
+) -> list[str]:
+    """Generate recommendations based on engine specs, vehicle specs, and build data."""
     recommendations = []
 
     if engine:
@@ -314,6 +342,91 @@ def _generate_recommendations(engine: Engine, build: Build) -> list[str]:
             recommendations.append(
                 f"Engine weight: {engine.weight} lbs. "
                 "Verify frame mounting and consider weight distribution."
+            )
+
+        # External balance warning
+        if engine.balance_type and engine.balance_type.lower() == "external":
+            recommendations.append(
+                "CRITICAL: Engine uses external balance. Flywheel/flexplate MUST match "
+                "the engine's external balance specification. Using the wrong one will "
+                "cause severe vibration and potential crankshaft damage."
+            )
+
+        # Compression ratio / fuel octane
+        if engine.compression_ratio and engine.compression_ratio > 10.5:
+            recommendations.append(
+                f"Compression ratio: {engine.compression_ratio}:1. Premium fuel (91+ octane) "
+                "recommended to prevent detonation."
+            )
+
+        # CAN bus protocol
+        if engine.can_bus_protocol:
+            recommendations.append(
+                f"CAN bus protocol: {engine.can_bus_protocol}. Wiring harness must be "
+                "compatible or a standalone ECU/CAN translator may be needed."
+            )
+
+        # Oil pan clearance vs vehicle ground clearance
+        if engine.oil_pan_depth_in and vehicle and vehicle.stock_ground_clearance_in:
+            if engine.oil_pan_depth_in > vehicle.stock_ground_clearance_in * 0.6:
+                recommendations.append(
+                    f"Oil pan depth ({engine.oil_pan_depth_in}\") may conflict with "
+                    f"vehicle ground clearance ({vehicle.stock_ground_clearance_in}\"). "
+                    "Consider a low-profile oil pan or crossmember modification."
+                )
+
+    # Driveline angle check
+    if vehicle and vehicle.driveline_angle_deg and vehicle.driveline_angle_deg > 3.0:
+        recommendations.append(
+            f"Driveline angle: {vehicle.driveline_angle_deg}°. Angles over 3° may cause "
+            "U-joint vibration. Consider an adjustable crossmember or transmission mount."
+        )
+
+    # Engine bay fitment math
+    if engine and vehicle:
+        if (engine.dimensions_l and vehicle.engine_bay_length_in and
+                engine.dimensions_l > vehicle.engine_bay_length_in - 1.0):
+            recommendations.append(
+                f"Tight length fitment: engine is {engine.dimensions_l}\" vs bay "
+                f"{vehicle.engine_bay_length_in}\". May need firewall or radiator "
+                "support modifications."
+            )
+        if (engine.dimensions_w and vehicle.engine_bay_width_in and
+                engine.dimensions_w > vehicle.engine_bay_width_in - 1.0):
+            recommendations.append(
+                f"Tight width fitment: engine is {engine.dimensions_w}\" vs bay "
+                f"{vehicle.engine_bay_width_in}\". Check header/exhaust manifold clearance "
+                "to frame rails and steering components."
+            )
+
+    # Torque capacity check
+    if (engine and transmission and
+            engine.torque_lb_ft and transmission.max_torque_capacity_lb_ft):
+        ratio = engine.torque_lb_ft / transmission.max_torque_capacity_lb_ft
+        if ratio > 0.85:
+            recommendations.append(
+                f"Engine torque ({engine.torque_lb_ft} lb-ft) is at "
+                f"{int(ratio * 100)}% of transmission capacity "
+                f"({transmission.max_torque_capacity_lb_ft} lb-ft). "
+                "Consider upgrading internals or choosing a higher-capacity unit."
+            )
+
+    # Data completeness check
+    if engine:
+        missing_critical = []
+        if not engine.displacement_liters:
+            missing_critical.append("displacement")
+        if not engine.compression_ratio:
+            missing_critical.append("compression ratio")
+        if not engine.valve_train:
+            missing_critical.append("valve train type")
+        if not engine.can_bus_protocol:
+            missing_critical.append("CAN bus protocol")
+        if missing_critical:
+            recommendations.append(
+                f"Missing critical engine specs: {', '.join(missing_critical)}. "
+                "Consider using the Enrich endpoint or adding these manually for "
+                "more accurate recommendations."
             )
 
     # Collision-based recommendations

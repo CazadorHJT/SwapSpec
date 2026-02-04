@@ -28,7 +28,7 @@ pytest tests/                                    # all tests
 pytest tests/test_api.py -v                      # verbose
 pytest tests/test_api.py::test_register_user -v  # single test
 
-# Seed database with sample vehicles, engines, transmissions
+# Seed database with sample vehicles, engines, transmissions (idempotent)
 python seed_data.py
 
 # Dependencies
@@ -60,10 +60,12 @@ No build step outside the Unity Editor. Scripts compile when opened in Unity 202
 
 ```
 Browser (web/) ──→ FastAPI (backend/) ──→ Supabase (Auth, PostgreSQL, Storage)
-Unity (unity/) ──→ FastAPI (backend/) ──↗
+Unity (unity/) ──→ FastAPI (backend/) ──↗       ↑
+                                                 ├── CarQuery API (engine/vehicle specs)
+                                                 └── NHTSA vPIC API (VIN decoding, vehicle data)
 ```
 
-The backend is the single gateway to Supabase. The web frontend's sole config is `NEXT_PUBLIC_API_URL=http://localhost:8000` in `web/.env.local`.
+The backend is the single gateway to Supabase and external APIs. The web frontend's sole config is `NEXT_PUBLIC_API_URL=http://localhost:8000` in `web/.env.local`.
 
 ### Backend (FastAPI + Async SQLAlchemy 2.0 + Supabase)
 
@@ -77,16 +79,22 @@ The backend is the single gateway to Supabase. The web frontend's sole config is
 
 **Router organization**: Each domain has a router in `app/routers/`, prefixed `/api/`. New routers must be exported via `app/routers/__init__.py` and registered in `app/main.py`.
 
+**Alembic**: `alembic/env.py` reads `DATABASE_URL` from `.env` at runtime and automatically sets `statement_cache_size=0` for pgBouncer connections.
+
 **Data model relationships**:
 - Users own Builds and contribute Vehicles
 - Builds reference one Vehicle + one Engine + optional Transmission, and have many ChatMessages
 - Transmissions match Engines via bellhousing pattern strings
 - ChatMessages store per-build advisor conversation history
 
+**Data provenance**: Engine, Vehicle, and Transmission models track where each spec value came from via a `data_sources` JSON field (maps field name → `"manufacturer"` | `"carquery_api"` | `"nhtsa_api"` | `"user_contributed"`) and a `data_source_notes` text field for citations. User-submitted fields are auto-tagged `"user_contributed"`. Auto-enrichment fills null fields from APIs on entity creation.
+
 **Services**:
 | Service | Location | Purpose |
 |---------|----------|---------|
-| AdvisorService | `app/services/advisor.py` | Claude AI chat (`claude-sonnet-4-20250514`), auto-persists history. Falls back to mock when `ANTHROPIC_API_KEY` unset |
+| AdvisorService | `app/services/advisor.py` | Claude AI chat with data integrity rules, auto-persists history. Falls back to mock when `ANTHROPIC_API_KEY` unset |
+| CarQueryClient | `app/services/carquery_client.py` | Free CarQuery API client for displacement, compression, bore/stroke, HP, torque, weight |
+| SpecLookupService | `app/services/spec_lookup.py` | Orchestrates CarQuery + NHTSA lookups, merges results, enriches entities. Merge priority: NHTSA > CarQuery > existing |
 | PDFService | `app/services/pdf_service.py` | WeasyPrint + Jinja2 templates in `app/templates/`. Requires system libs (`brew install cairo pango gdk-pixbuf libffi`). Returns 503 if unavailable |
 | StorageService | `app/services/storage.py` | Supabase Storage uploads (buckets: `uploads`, `meshes`). Lazily instantiated in routers |
 | VINDecoderService | `app/services/vin_decoder.py` | NHTSA API VIN decoding |
@@ -100,7 +108,7 @@ The backend is the single gateway to Supabase. The web frontend's sole config is
 
 **API client**: `lib/api-client.ts` is a typed fetch wrapper. Auto-injects Bearer token, handles FormData for uploads, blob downloads for PDF export. Every backend endpoint has a corresponding typed function.
 
-**Type alignment**: `lib/types.ts` contains TypeScript interfaces matching every backend Pydantic schema. When backend schemas change, update this file.
+**Type alignment**: `lib/types.ts` contains TypeScript interfaces matching every backend Pydantic schema. When backend schemas change, update this file. Includes `DataSourceType` union and `DataSources` record type for provenance tracking.
 
 **Data fetching**: Custom `useApi` hook (`hooks/use-api.ts`) wraps fetch with loading/error/refetch state. Domain-specific hooks (`use-vehicles.ts`, etc.) provide parameterized queries.
 
@@ -108,7 +116,7 @@ The backend is the single gateway to Supabase. The web frontend's sole config is
 
 **3D Viewer**: React Three Fiber + drei in `components/viewer/`. `ModelViewer` wraps a Canvas with OrbitControls. `ModelLoader` switches between GLB/OBJ/STL loaders by file extension. Must be client-only (loaded via `next/dynamic` with `ssr: false`).
 
-**Build detail page**: Three tabs — Overview (specs + PDF export), 3D Viewer (mesh rendering), Advisor (AI chat with markdown rendering via react-markdown).
+**Build detail page**: Three tabs — Overview (specs with source badges + PDF export), 3D Viewer (mesh rendering), Advisor (AI chat with markdown rendering via react-markdown). Source badges show colored labels (MFR/API/USER) indicating data provenance for each spec value.
 
 ### Unity Client (C#)
 

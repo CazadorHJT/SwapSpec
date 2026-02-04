@@ -11,6 +11,7 @@ from app.routers import (
     builds_router,
     advisor_router,
     files_router,
+    specs_router,
 )
 
 
@@ -45,6 +46,7 @@ app.include_router(users_router)
 app.include_router(builds_router)
 app.include_router(advisor_router)
 app.include_router(files_router)
+app.include_router(specs_router)
 
 
 @app.get("/")

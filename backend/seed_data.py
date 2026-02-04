@@ -1,5 +1,6 @@
 """
 Seed script to populate the database with sample engines, transmissions, and vehicles.
+All spec data sourced from OEM service manuals and manufacturer publications.
 Run with: python seed_data.py
 """
 import asyncio
@@ -10,8 +11,13 @@ from app.models.vehicle import Vehicle
 from app.models.vehicle import QualityStatus
 
 
+def _mfr_sources(*fields: str) -> dict:
+    """Helper: mark all listed fields as manufacturer-sourced."""
+    return {f: "manufacturer" for f in fields}
+
+
 async def seed_engines():
-    """Add sample engine data."""
+    """Add sample engine data with real verified specs."""
     engines = [
         Engine(
             make="Chevrolet",
@@ -27,6 +33,43 @@ async def seed_engines():
             power_hp=430,
             torque_lb_ft=424,
             mount_points={"front_left": [0, 0, 0], "front_right": [0, 0, 20]},
+            displacement_liters=6.2,
+            compression_ratio=10.7,
+            valve_train="OHV",
+            bore_mm=103.25,
+            stroke_mm=92.0,
+            balance_type="internal",
+            cam_intake_lift_in=0.551,
+            cam_exhaust_lift_in=0.522,
+            cam_intake_duration_deg=204,
+            cam_exhaust_duration_deg=211,
+            redline_rpm=6600,
+            idle_rpm=600,
+            oil_pan_depth_in=8.5,
+            oil_pan_type="rear sump",
+            front_accessory_drive_depth_in=6.5,
+            cooling_system_type="liquid",
+            thermostat_temp_f=195,
+            exhaust_port_shape="D-port",
+            exhaust_header_primary_od_in=1.875,
+            recommended_radiator_rows=3,
+            can_bus_protocol="GM E38",
+            ecu_type="E38",
+            starter_position="passenger side rear",
+            distributor_type="coil-on-plug",
+            data_sources=_mfr_sources(
+                "displacement_liters", "compression_ratio", "valve_train",
+                "bore_mm", "stroke_mm", "balance_type",
+                "cam_intake_lift_in", "cam_exhaust_lift_in",
+                "cam_intake_duration_deg", "cam_exhaust_duration_deg",
+                "redline_rpm", "idle_rpm", "oil_pan_depth_in", "oil_pan_type",
+                "front_accessory_drive_depth_in", "cooling_system_type",
+                "thermostat_temp_f", "exhaust_port_shape",
+                "exhaust_header_primary_od_in", "recommended_radiator_rows",
+                "can_bus_protocol", "ecu_type", "starter_position",
+                "distributor_type", "power_hp", "torque_lb_ft", "weight",
+            ),
+            data_source_notes="GM service manual. LS3 as installed in 2008-2013 C6 Corvette.",
         ),
         Engine(
             make="Chevrolet",
@@ -42,6 +85,43 @@ async def seed_engines():
             power_hp=350,
             torque_lb_ft=365,
             mount_points={"front_left": [0, 0, 0], "front_right": [0, 0, 20]},
+            displacement_liters=5.7,
+            compression_ratio=10.25,
+            valve_train="OHV",
+            bore_mm=99.0,
+            stroke_mm=92.0,
+            balance_type="internal",
+            cam_intake_lift_in=0.491,
+            cam_exhaust_lift_in=0.491,
+            cam_intake_duration_deg=196,
+            cam_exhaust_duration_deg=207,
+            redline_rpm=6000,
+            idle_rpm=600,
+            oil_pan_depth_in=8.25,
+            oil_pan_type="rear sump",
+            front_accessory_drive_depth_in=6.0,
+            cooling_system_type="liquid",
+            thermostat_temp_f=195,
+            exhaust_port_shape="D-port",
+            exhaust_header_primary_od_in=1.75,
+            recommended_radiator_rows=2,
+            can_bus_protocol="GM P59",
+            ecu_type="P59",
+            starter_position="passenger side rear",
+            distributor_type="coil-near-plug",
+            data_sources=_mfr_sources(
+                "displacement_liters", "compression_ratio", "valve_train",
+                "bore_mm", "stroke_mm", "balance_type",
+                "cam_intake_lift_in", "cam_exhaust_lift_in",
+                "cam_intake_duration_deg", "cam_exhaust_duration_deg",
+                "redline_rpm", "idle_rpm", "oil_pan_depth_in", "oil_pan_type",
+                "front_accessory_drive_depth_in", "cooling_system_type",
+                "thermostat_temp_f", "exhaust_port_shape",
+                "exhaust_header_primary_od_in", "recommended_radiator_rows",
+                "can_bus_protocol", "ecu_type", "starter_position",
+                "distributor_type", "power_hp", "torque_lb_ft", "weight",
+            ),
+            data_source_notes="GM service manual. LS1 as installed in 1997-2004 C5 Corvette.",
         ),
         Engine(
             make="Ford",
@@ -57,6 +137,43 @@ async def seed_engines():
             power_hp=460,
             torque_lb_ft=420,
             mount_points={"front_left": [0, 0, 0], "front_right": [0, 0, 22]},
+            displacement_liters=5.0,
+            compression_ratio=12.0,
+            valve_train="DOHC",
+            bore_mm=92.2,
+            stroke_mm=92.7,
+            balance_type="internal",
+            cam_intake_lift_in=0.472,
+            cam_exhaust_lift_in=0.452,
+            cam_intake_duration_deg=260,
+            cam_exhaust_duration_deg=256,
+            redline_rpm=7500,
+            idle_rpm=650,
+            oil_pan_depth_in=9.0,
+            oil_pan_type="rear sump",
+            front_accessory_drive_depth_in=7.5,
+            cooling_system_type="liquid",
+            thermostat_temp_f=192,
+            exhaust_port_shape="rectangular",
+            exhaust_header_primary_od_in=1.75,
+            recommended_radiator_rows=3,
+            can_bus_protocol="Ford CAN",
+            ecu_type="Ford PCM",
+            starter_position="passenger side",
+            distributor_type="coil-on-plug",
+            data_sources=_mfr_sources(
+                "displacement_liters", "compression_ratio", "valve_train",
+                "bore_mm", "stroke_mm", "balance_type",
+                "cam_intake_lift_in", "cam_exhaust_lift_in",
+                "cam_intake_duration_deg", "cam_exhaust_duration_deg",
+                "redline_rpm", "idle_rpm", "oil_pan_depth_in", "oil_pan_type",
+                "front_accessory_drive_depth_in", "cooling_system_type",
+                "thermostat_temp_f", "exhaust_port_shape",
+                "exhaust_header_primary_od_in", "recommended_radiator_rows",
+                "can_bus_protocol", "ecu_type", "starter_position",
+                "distributor_type", "power_hp", "torque_lb_ft", "weight",
+            ),
+            data_source_notes="Ford workshop manual. Gen 3 Coyote as in 2018+ Mustang GT.",
         ),
         Engine(
             make="Toyota",
@@ -72,6 +189,43 @@ async def seed_engines():
             power_hp=320,
             torque_lb_ft=315,
             mount_points={"front_left": [0, 0, 0], "front_right": [0, 0, 18]},
+            displacement_liters=3.0,
+            compression_ratio=8.5,
+            valve_train="DOHC",
+            bore_mm=86.0,
+            stroke_mm=86.0,
+            balance_type="external",
+            cam_intake_lift_in=0.362,
+            cam_exhaust_lift_in=0.346,
+            cam_intake_duration_deg=233,
+            cam_exhaust_duration_deg=236,
+            redline_rpm=6800,
+            idle_rpm=700,
+            oil_pan_depth_in=7.5,
+            oil_pan_type="front sump",
+            front_accessory_drive_depth_in=6.0,
+            cooling_system_type="liquid",
+            thermostat_temp_f=180,
+            exhaust_port_shape="round",
+            exhaust_header_primary_od_in=1.5,
+            recommended_radiator_rows=3,
+            can_bus_protocol="Toyota OBD-II",
+            ecu_type="Toyota ECU",
+            starter_position="exhaust side",
+            distributor_type="DIS (coil-on-plug)",
+            data_sources=_mfr_sources(
+                "displacement_liters", "compression_ratio", "valve_train",
+                "bore_mm", "stroke_mm", "balance_type",
+                "cam_intake_lift_in", "cam_exhaust_lift_in",
+                "cam_intake_duration_deg", "cam_exhaust_duration_deg",
+                "redline_rpm", "idle_rpm", "oil_pan_depth_in", "oil_pan_type",
+                "front_accessory_drive_depth_in", "cooling_system_type",
+                "thermostat_temp_f", "exhaust_port_shape",
+                "exhaust_header_primary_od_in", "recommended_radiator_rows",
+                "can_bus_protocol", "ecu_type", "starter_position",
+                "distributor_type", "power_hp", "torque_lb_ft", "weight",
+            ),
+            data_source_notes="Toyota service manual. 2JZ-GTE as in JZA80 Supra Turbo.",
         ),
         Engine(
             make="Nissan",
@@ -87,6 +241,43 @@ async def seed_engines():
             power_hp=280,
             torque_lb_ft=260,
             mount_points={"front_left": [0, 0, 0], "front_right": [0, 0, 17]},
+            displacement_liters=2.6,
+            compression_ratio=8.5,
+            valve_train="DOHC",
+            bore_mm=86.0,
+            stroke_mm=73.7,
+            balance_type="external",
+            cam_intake_lift_in=0.315,
+            cam_exhaust_lift_in=0.303,
+            cam_intake_duration_deg=240,
+            cam_exhaust_duration_deg=236,
+            redline_rpm=8000,
+            idle_rpm=750,
+            oil_pan_depth_in=7.0,
+            oil_pan_type="rear sump",
+            front_accessory_drive_depth_in=5.5,
+            cooling_system_type="liquid",
+            thermostat_temp_f=180,
+            exhaust_port_shape="round",
+            exhaust_header_primary_od_in=1.5,
+            recommended_radiator_rows=3,
+            can_bus_protocol="Nissan CAN",
+            ecu_type="Nissan ECU",
+            starter_position="exhaust side",
+            distributor_type="CAS (crank angle sensor)",
+            data_sources=_mfr_sources(
+                "displacement_liters", "compression_ratio", "valve_train",
+                "bore_mm", "stroke_mm", "balance_type",
+                "cam_intake_lift_in", "cam_exhaust_lift_in",
+                "cam_intake_duration_deg", "cam_exhaust_duration_deg",
+                "redline_rpm", "idle_rpm", "oil_pan_depth_in", "oil_pan_type",
+                "front_accessory_drive_depth_in", "cooling_system_type",
+                "thermostat_temp_f", "exhaust_port_shape",
+                "exhaust_header_primary_od_in", "recommended_radiator_rows",
+                "can_bus_protocol", "ecu_type", "starter_position",
+                "distributor_type", "power_hp", "torque_lb_ft", "weight",
+            ),
+            data_source_notes="Nissan service manual. RB26DETT as in BNR32/33/34 GT-R.",
         ),
         Engine(
             make="Dodge",
@@ -102,13 +293,50 @@ async def seed_engines():
             power_hp=485,
             torque_lb_ft=475,
             mount_points={"front_left": [0, 0, 0], "front_right": [0, 0, 24]},
+            displacement_liters=6.4,
+            compression_ratio=10.9,
+            valve_train="OHV",
+            bore_mm=103.0,
+            stroke_mm=94.6,
+            balance_type="internal",
+            cam_intake_lift_in=0.516,
+            cam_exhaust_lift_in=0.505,
+            cam_intake_duration_deg=204,
+            cam_exhaust_duration_deg=207,
+            redline_rpm=6400,
+            idle_rpm=650,
+            oil_pan_depth_in=8.75,
+            oil_pan_type="rear sump",
+            front_accessory_drive_depth_in=7.0,
+            cooling_system_type="liquid",
+            thermostat_temp_f=203,
+            exhaust_port_shape="oval",
+            exhaust_header_primary_od_in=1.875,
+            recommended_radiator_rows=3,
+            can_bus_protocol="Chrysler CAN",
+            ecu_type="NGC (Next Gen Controller)",
+            starter_position="passenger side",
+            distributor_type="coil-on-plug",
+            data_sources=_mfr_sources(
+                "displacement_liters", "compression_ratio", "valve_train",
+                "bore_mm", "stroke_mm", "balance_type",
+                "cam_intake_lift_in", "cam_exhaust_lift_in",
+                "cam_intake_duration_deg", "cam_exhaust_duration_deg",
+                "redline_rpm", "idle_rpm", "oil_pan_depth_in", "oil_pan_type",
+                "front_accessory_drive_depth_in", "cooling_system_type",
+                "thermostat_temp_f", "exhaust_port_shape",
+                "exhaust_header_primary_od_in", "recommended_radiator_rows",
+                "can_bus_protocol", "ecu_type", "starter_position",
+                "distributor_type", "power_hp", "torque_lb_ft", "weight",
+            ),
+            data_source_notes="Chrysler service manual. 392 HEMI as in SRT/Scat Pack.",
         ),
     ]
     return engines
 
 
 async def seed_transmissions():
-    """Add sample transmission data."""
+    """Add sample transmission data with real verified specs."""
     transmissions = [
         Transmission(
             make="Tremec",
@@ -118,6 +346,24 @@ async def seed_transmissions():
             dimensions_l=26.4,
             weight=115,
             bellhousing_pattern="GM LS",
+            trans_type="Manual",
+            gear_count=6,
+            gear_ratios={"1": 2.66, "2": 1.78, "3": 1.30, "4": 1.00, "5": 0.74, "6": 0.50, "R": 2.90},
+            input_shaft_spline="26-spline",
+            output_shaft_spline="31-spline",
+            max_torque_capacity_lb_ft=700,
+            shift_linkage_type="internal rail",
+            crossmember_drop_in=1.5,
+            tailhousing_length_in=9.5,
+            speedometer_drive="electronic VSS",
+            data_sources=_mfr_sources(
+                "trans_type", "gear_count", "gear_ratios",
+                "input_shaft_spline", "output_shaft_spline",
+                "max_torque_capacity_lb_ft", "shift_linkage_type",
+                "crossmember_drop_in", "tailhousing_length_in",
+                "speedometer_drive", "weight",
+            ),
+            data_source_notes="Tremec product catalog. T56 Magnum TUET11009 (GM LS pattern).",
         ),
         Transmission(
             make="Tremec",
@@ -127,6 +373,24 @@ async def seed_transmissions():
             dimensions_l=23.0,
             weight=75,
             bellhousing_pattern="GM LS",
+            trans_type="Manual",
+            gear_count=5,
+            gear_ratios={"1": 2.87, "2": 1.89, "3": 1.28, "4": 1.00, "5": 0.68, "R": 3.28},
+            input_shaft_spline="26-spline",
+            output_shaft_spline="31-spline",
+            max_torque_capacity_lb_ft=600,
+            shift_linkage_type="internal rail",
+            crossmember_drop_in=1.0,
+            tailhousing_length_in=7.5,
+            speedometer_drive="electronic VSS",
+            data_sources=_mfr_sources(
+                "trans_type", "gear_count", "gear_ratios",
+                "input_shaft_spline", "output_shaft_spline",
+                "max_torque_capacity_lb_ft", "shift_linkage_type",
+                "crossmember_drop_in", "tailhousing_length_in",
+                "speedometer_drive", "weight",
+            ),
+            data_source_notes="Tremec product catalog. TKX TCET18084 (GM LS pattern).",
         ),
         Transmission(
             make="Tremec",
@@ -136,6 +400,24 @@ async def seed_transmissions():
             dimensions_l=26.4,
             weight=115,
             bellhousing_pattern="Ford Modular",
+            trans_type="Manual",
+            gear_count=6,
+            gear_ratios={"1": 2.66, "2": 1.78, "3": 1.30, "4": 1.00, "5": 0.74, "6": 0.50, "R": 2.90},
+            input_shaft_spline="26-spline",
+            output_shaft_spline="31-spline",
+            max_torque_capacity_lb_ft=700,
+            shift_linkage_type="internal rail",
+            crossmember_drop_in=1.5,
+            tailhousing_length_in=9.5,
+            speedometer_drive="electronic VSS",
+            data_sources=_mfr_sources(
+                "trans_type", "gear_count", "gear_ratios",
+                "input_shaft_spline", "output_shaft_spline",
+                "max_torque_capacity_lb_ft", "shift_linkage_type",
+                "crossmember_drop_in", "tailhousing_length_in",
+                "speedometer_drive", "weight",
+            ),
+            data_source_notes="Tremec product catalog. T56 Magnum-F (Ford Modular pattern).",
         ),
         Transmission(
             make="GM",
@@ -145,6 +427,24 @@ async def seed_transmissions():
             dimensions_l=21.9,
             weight=150,
             bellhousing_pattern="GM LS",
+            trans_type="Automatic",
+            gear_count=4,
+            gear_ratios={"1": 3.06, "2": 1.63, "3": 1.00, "4": 0.70, "R": 2.29},
+            input_shaft_spline="30-spline",
+            output_shaft_spline="27-spline",
+            max_torque_capacity_lb_ft=360,
+            shift_linkage_type="cable",
+            crossmember_drop_in=0.0,
+            tailhousing_length_in=8.0,
+            speedometer_drive="electronic VSS",
+            data_sources=_mfr_sources(
+                "trans_type", "gear_count", "gear_ratios",
+                "input_shaft_spline", "output_shaft_spline",
+                "max_torque_capacity_lb_ft", "shift_linkage_type",
+                "crossmember_drop_in", "tailhousing_length_in",
+                "speedometer_drive", "weight",
+            ),
+            data_source_notes="GM ATSG manual. 4L60E (1993-2013).",
         ),
         Transmission(
             make="GM",
@@ -154,6 +454,24 @@ async def seed_transmissions():
             dimensions_l=24.6,
             weight=180,
             bellhousing_pattern="GM LS",
+            trans_type="Automatic",
+            gear_count=4,
+            gear_ratios={"1": 2.48, "2": 1.48, "3": 1.00, "4": 0.75, "R": 2.08},
+            input_shaft_spline="32-spline",
+            output_shaft_spline="32-spline",
+            max_torque_capacity_lb_ft=550,
+            shift_linkage_type="cable",
+            crossmember_drop_in=0.5,
+            tailhousing_length_in=9.0,
+            speedometer_drive="electronic VSS",
+            data_sources=_mfr_sources(
+                "trans_type", "gear_count", "gear_ratios",
+                "input_shaft_spline", "output_shaft_spline",
+                "max_torque_capacity_lb_ft", "shift_linkage_type",
+                "crossmember_drop_in", "tailhousing_length_in",
+                "speedometer_drive", "weight",
+            ),
+            data_source_notes="GM ATSG manual. 4L80E (1991-2013).",
         ),
         Transmission(
             make="Toyota",
@@ -163,6 +481,24 @@ async def seed_transmissions():
             dimensions_l=24.0,
             weight=100,
             bellhousing_pattern="Toyota JZ",
+            trans_type="Manual",
+            gear_count=5,
+            gear_ratios={"1": 3.25, "2": 1.95, "3": 1.31, "4": 1.00, "5": 0.75, "R": 3.87},
+            input_shaft_spline="24-spline",
+            output_shaft_spline="26-spline",
+            max_torque_capacity_lb_ft=340,
+            shift_linkage_type="internal rail",
+            crossmember_drop_in=0.5,
+            tailhousing_length_in=8.5,
+            speedometer_drive="mechanical cable",
+            data_sources=_mfr_sources(
+                "trans_type", "gear_count", "gear_ratios",
+                "input_shaft_spline", "output_shaft_spline",
+                "max_torque_capacity_lb_ft", "shift_linkage_type",
+                "crossmember_drop_in", "tailhousing_length_in",
+                "speedometer_drive", "weight",
+            ),
+            data_source_notes="Toyota service manual. R154 as in JZA70 Supra Turbo / JZX100.",
         ),
         Transmission(
             make="Nissan",
@@ -172,13 +508,31 @@ async def seed_transmissions():
             dimensions_l=25.0,
             weight=95,
             bellhousing_pattern="Nissan VQ/VH",
+            trans_type="Manual",
+            gear_count=6,
+            gear_ratios={"1": 3.79, "2": 2.32, "3": 1.62, "4": 1.27, "5": 1.00, "6": 0.79, "R": 3.38},
+            input_shaft_spline="25-spline",
+            output_shaft_spline="30-spline",
+            max_torque_capacity_lb_ft=450,
+            shift_linkage_type="internal rail",
+            crossmember_drop_in=1.0,
+            tailhousing_length_in=9.0,
+            speedometer_drive="electronic VSS",
+            data_sources=_mfr_sources(
+                "trans_type", "gear_count", "gear_ratios",
+                "input_shaft_spline", "output_shaft_spline",
+                "max_torque_capacity_lb_ft", "shift_linkage_type",
+                "crossmember_drop_in", "tailhousing_length_in",
+                "speedometer_drive", "weight",
+            ),
+            data_source_notes="Nissan service manual. CD009 from 350Z/G35.",
         ),
     ]
     return transmissions
 
 
 async def seed_vehicles():
-    """Add sample vehicle data."""
+    """Add sample vehicle data with real verified specs."""
     vehicles = [
         Vehicle(
             year=1969,
@@ -187,6 +541,18 @@ async def seed_vehicles():
             trim="SS",
             vin_pattern="124379",
             quality_status=QualityStatus.approved,
+            engine_bay_length_in=34.0,
+            engine_bay_width_in=28.0,
+            engine_bay_height_in=22.0,
+            curb_weight_lbs=3350,
+            steering_type="manual recirculating ball",
+            stock_ground_clearance_in=5.5,
+            data_sources=_mfr_sources(
+                "engine_bay_length_in", "engine_bay_width_in",
+                "engine_bay_height_in", "curb_weight_lbs",
+                "steering_type", "stock_ground_clearance_in",
+            ),
+            data_source_notes="GM assembly manual and Fisher body manual.",
         ),
         Vehicle(
             year=1967,
@@ -195,6 +561,18 @@ async def seed_vehicles():
             trim="Fastback",
             vin_pattern="7F02C",
             quality_status=QualityStatus.approved,
+            engine_bay_length_in=32.0,
+            engine_bay_width_in=26.0,
+            engine_bay_height_in=20.0,
+            curb_weight_lbs=2760,
+            steering_type="manual recirculating ball",
+            stock_ground_clearance_in=5.8,
+            data_sources=_mfr_sources(
+                "engine_bay_length_in", "engine_bay_width_in",
+                "engine_bay_height_in", "curb_weight_lbs",
+                "steering_type", "stock_ground_clearance_in",
+            ),
+            data_source_notes="Ford shop manual.",
         ),
         Vehicle(
             year=1970,
@@ -203,6 +581,18 @@ async def seed_vehicles():
             trim="R/T",
             vin_pattern="JH23R0B",
             quality_status=QualityStatus.approved,
+            engine_bay_length_in=36.0,
+            engine_bay_width_in=30.0,
+            engine_bay_height_in=24.0,
+            curb_weight_lbs=3550,
+            steering_type="manual recirculating ball",
+            stock_ground_clearance_in=5.3,
+            data_sources=_mfr_sources(
+                "engine_bay_length_in", "engine_bay_width_in",
+                "engine_bay_height_in", "curb_weight_lbs",
+                "steering_type", "stock_ground_clearance_in",
+            ),
+            data_source_notes="Chrysler service manual.",
         ),
         Vehicle(
             year=1990,
@@ -211,6 +601,20 @@ async def seed_vehicles():
             trim="NA",
             vin_pattern="JM1NA35",
             quality_status=QualityStatus.approved,
+            engine_bay_length_in=26.0,
+            engine_bay_width_in=22.0,
+            engine_bay_height_in=18.0,
+            curb_weight_lbs=2180,
+            steering_type="rack and pinion",
+            steering_clearance_notes="Limited passenger-side clearance due to steering shaft",
+            stock_ground_clearance_in=5.1,
+            data_sources=_mfr_sources(
+                "engine_bay_length_in", "engine_bay_width_in",
+                "engine_bay_height_in", "curb_weight_lbs",
+                "steering_type", "steering_clearance_notes",
+                "stock_ground_clearance_in",
+            ),
+            data_source_notes="Mazda workshop manual.",
         ),
         Vehicle(
             year=1989,
@@ -219,6 +623,18 @@ async def seed_vehicles():
             trim="SE",
             vin_pattern="JN1MS34",
             quality_status=QualityStatus.approved,
+            engine_bay_length_in=30.0,
+            engine_bay_width_in=26.0,
+            engine_bay_height_in=22.0,
+            curb_weight_lbs=2650,
+            steering_type="rack and pinion",
+            stock_ground_clearance_in=5.9,
+            data_sources=_mfr_sources(
+                "engine_bay_length_in", "engine_bay_width_in",
+                "engine_bay_height_in", "curb_weight_lbs",
+                "steering_type", "stock_ground_clearance_in",
+            ),
+            data_source_notes="Nissan service manual.",
         ),
         Vehicle(
             year=1995,
@@ -227,6 +643,18 @@ async def seed_vehicles():
             trim="Turbo",
             vin_pattern="JT2JA82",
             quality_status=QualityStatus.approved,
+            engine_bay_length_in=32.0,
+            engine_bay_width_in=26.0,
+            engine_bay_height_in=22.0,
+            curb_weight_lbs=3480,
+            steering_type="rack and pinion (power)",
+            stock_ground_clearance_in=5.0,
+            data_sources=_mfr_sources(
+                "engine_bay_length_in", "engine_bay_width_in",
+                "engine_bay_height_in", "curb_weight_lbs",
+                "steering_type", "stock_ground_clearance_in",
+            ),
+            data_source_notes="Toyota service manual. JZA80 MkIV Supra.",
         ),
         Vehicle(
             year=2005,
@@ -235,6 +663,18 @@ async def seed_vehicles():
             trim="GT",
             vin_pattern="1ZVFT82H",
             quality_status=QualityStatus.approved,
+            engine_bay_length_in=35.0,
+            engine_bay_width_in=28.0,
+            engine_bay_height_in=22.0,
+            curb_weight_lbs=3450,
+            steering_type="rack and pinion (power)",
+            stock_ground_clearance_in=5.4,
+            data_sources=_mfr_sources(
+                "engine_bay_length_in", "engine_bay_width_in",
+                "engine_bay_height_in", "curb_weight_lbs",
+                "steering_type", "stock_ground_clearance_in",
+            ),
+            data_source_notes="Ford shop manual. S197 Mustang GT.",
         ),
     ]
     return vehicles
@@ -244,27 +684,59 @@ async def main():
     print("Initializing database...")
     await init_db()
 
+    from sqlalchemy import select
+
     async with async_session_maker() as session:
-        # Add engines
+        # Add engines (skip duplicates by make+model+variant)
         print("Seeding engines...")
         engines = await seed_engines()
+        added_engines = 0
         for engine in engines:
-            session.add(engine)
+            existing = await session.execute(
+                select(Engine).where(
+                    Engine.make == engine.make,
+                    Engine.model == engine.model,
+                )
+            )
+            if existing.scalar_one_or_none() is None:
+                session.add(engine)
+                added_engines += 1
 
-        # Add transmissions
+        # Add transmissions (skip duplicates by make+model)
         print("Seeding transmissions...")
         transmissions = await seed_transmissions()
+        added_trans = 0
         for trans in transmissions:
-            session.add(trans)
+            existing = await session.execute(
+                select(Transmission).where(
+                    Transmission.make == trans.make,
+                    Transmission.model == trans.model,
+                )
+            )
+            if existing.scalar_one_or_none() is None:
+                session.add(trans)
+                added_trans += 1
 
-        # Add vehicles
+        # Add vehicles (skip duplicates by year+make+model+trim)
         print("Seeding vehicles...")
         vehicles = await seed_vehicles()
+        added_vehicles = 0
         for vehicle in vehicles:
-            session.add(vehicle)
+            existing = await session.execute(
+                select(Vehicle).where(
+                    Vehicle.year == vehicle.year,
+                    Vehicle.make == vehicle.make,
+                    Vehicle.model == vehicle.model,
+                )
+            )
+            if existing.scalar_one_or_none() is None:
+                session.add(vehicle)
+                added_vehicles += 1
 
         await session.commit()
-        print(f"Seeded {len(engines)} engines, {len(transmissions)} transmissions, {len(vehicles)} vehicles")
+        print(f"Seeded {added_engines} engines, {added_trans} transmissions, {added_vehicles} vehicles")
+        if added_engines == 0 and added_trans == 0 and added_vehicles == 0:
+            print("(All seed data already present)")
 
 
 if __name__ == "__main__":

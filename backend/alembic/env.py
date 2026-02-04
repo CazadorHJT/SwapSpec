@@ -8,8 +8,14 @@ from alembic import context
 # Import models to ensure they're registered with Base.metadata
 from app.database import Base
 from app.models import Engine, Transmission, Vehicle, User, Build
+from app.config import get_settings
 
 config = context.config
+
+# Override sqlalchemy.url with DATABASE_URL from .env if available
+settings = get_settings()
+config.set_main_option("sqlalchemy.url", settings.database_url)
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
@@ -38,10 +44,16 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
+    section = config.get_section(config.config_ini_section, {})
+    connect_args = {}
+    url = section.get("sqlalchemy.url", "")
+    if "asyncpg" in url:
+        connect_args = {"statement_cache_size": 0}
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:

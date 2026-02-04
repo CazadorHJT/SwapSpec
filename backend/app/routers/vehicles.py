@@ -8,9 +8,11 @@ from app.models.user import User
 from app.schemas.vehicle import VehicleCreate, VehicleResponse, VehicleList, VINDecodeResponse
 from app.utils.auth import get_current_user
 from app.services.vin_decoder import VINDecoderService
+from app.services.spec_lookup import SpecLookupService
 
 router = APIRouter(prefix="/api/vehicles", tags=["Vehicles"])
 vin_decoder = VINDecoderService()
+spec_lookup = SpecLookupService()
 
 
 @router.get("", response_model=VehicleList)
@@ -70,12 +72,47 @@ async def create_vehicle(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Upload a new vehicle scan (requires authentication)."""
+    """Upload a new vehicle scan (requires authentication).
+    Auto-enriches with API data for any null spec fields."""
+    # Tag user-provided spec fields
+    user_fields = {
+        k: v for k, v in vehicle_data.model_dump(exclude_unset=True).items()
+        if v is not None and k not in ("year", "make", "model", "trim", "vin_pattern",
+                                        "bay_scan_mesh_url", "modifications",
+                                        "data_sources", "data_source_notes")
+    }
+    initial_sources = {field: "user_contributed" for field in user_fields}
+
     vehicle = Vehicle(
         **vehicle_data.model_dump(),
         contributor_id=current_user.id,
     )
+    vehicle.data_sources = initial_sources if initial_sources else None
     db.add(vehicle)
     await db.commit()
     await db.refresh(vehicle)
+
+    # Auto-enrich from APIs (best-effort)
+    try:
+        await spec_lookup.enrich_vehicle(vehicle.id, db)
+        await db.refresh(vehicle)
+    except Exception:
+        pass
+
+    return vehicle
+
+
+@router.post("/{vehicle_id}/enrich", response_model=VehicleResponse)
+async def enrich_vehicle(
+    vehicle_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Manually trigger spec enrichment for a vehicle from external APIs."""
+    vehicle = await spec_lookup.enrich_vehicle(vehicle_id, db)
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle not found",
+        )
     return vehicle
