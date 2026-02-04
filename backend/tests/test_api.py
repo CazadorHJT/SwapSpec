@@ -291,6 +291,51 @@ async def test_spec_lookup_vehicle(client: AsyncClient):
 
 
 @pytest.mark.anyio
+async def test_list_vehicles_unauthenticated_sees_only_approved(client: AsyncClient):
+    """Test that unauthenticated users only see approved vehicles."""
+    headers = {"Authorization": f"Bearer {FAKE_ACCESS_TOKEN}"}
+
+    # Create a vehicle (defaults to pending quality_status)
+    create_response = await client.post(
+        "/api/vehicles",
+        json={"year": 2015, "make": "Ford", "model": "Mustang", "trim": "GT"},
+        headers=headers,
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+    assert created["quality_status"] == "pending"
+
+    # List without auth — pending vehicle should NOT appear
+    list_response = await client.get("/api/vehicles")
+    assert list_response.status_code == 200
+    vehicles = list_response.json()["vehicles"]
+    vehicle_ids = [v["id"] for v in vehicles]
+    assert created["id"] not in vehicle_ids
+
+
+@pytest.mark.anyio
+async def test_list_vehicles_authenticated_sees_own_pending(client: AsyncClient):
+    """Test that authenticated users see their own pending vehicles."""
+    headers = {"Authorization": f"Bearer {FAKE_ACCESS_TOKEN}"}
+
+    # Create a vehicle (defaults to pending)
+    create_response = await client.post(
+        "/api/vehicles",
+        json={"year": 2020, "make": "Toyota", "model": "Supra", "trim": "3.0"},
+        headers=headers,
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+
+    # List with auth — pending vehicle owned by this user SHOULD appear
+    list_response = await client.get("/api/vehicles", headers=headers)
+    assert list_response.status_code == 200
+    vehicles = list_response.json()["vehicles"]
+    vehicle_ids = [v["id"] for v in vehicles]
+    assert created["id"] in vehicle_ids
+
+
+@pytest.mark.anyio
 async def test_vin_decode(client: AsyncClient):
     """Test VIN decoding endpoint."""
     response = await client.get("/api/vehicles/decode-vin/1FTEW1EP5MFA12345")

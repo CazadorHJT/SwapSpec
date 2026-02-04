@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from typing import Optional
 from app.database import get_db
-from app.models.vehicle import Vehicle
+from app.models.vehicle import Vehicle, QualityStatus
 from app.models.user import User
 from app.schemas.vehicle import VehicleCreate, VehicleResponse, VehicleList, VINDecodeResponse
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, get_optional_user
 from app.services.vin_decoder import VINDecoderService
 from app.services.spec_lookup import SpecLookupService
 
@@ -23,9 +23,24 @@ async def list_vehicles(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
-    """List all scanned vehicles with optional filtering."""
+    """List vehicles with visibility filtering.
+    Authenticated users see approved vehicles + their own pending vehicles.
+    Unauthenticated users see only approved vehicles.
+    Rejected vehicles are never shown."""
     query = select(Vehicle)
+
+    # Visibility filter
+    if current_user:
+        query = query.where(
+            or_(
+                Vehicle.quality_status == QualityStatus.approved,
+                (Vehicle.quality_status == QualityStatus.pending) & (Vehicle.contributor_id == current_user.id),
+            )
+        )
+    else:
+        query = query.where(Vehicle.quality_status == QualityStatus.approved)
 
     if year:
         query = query.where(Vehicle.year == year)

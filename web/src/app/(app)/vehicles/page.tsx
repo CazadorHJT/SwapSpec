@@ -12,7 +12,7 @@ export default function VehiclesPage() {
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
 
-  const { data, loading } = useVehicles({
+  const { data, loading, refetch } = useVehicles({
     year: year ? parseInt(year) : undefined,
     make: make || undefined,
     model: model || undefined,
@@ -22,7 +22,10 @@ export default function VehiclesPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Vehicles</h1>
 
-      <VinDecoder />
+      <VinDecoder
+        onVehicleCreated={() => refetch()}
+        existingVehicles={data?.vehicles}
+      />
 
       <VehicleFilters
         year={year}

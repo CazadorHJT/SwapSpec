@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Plus, ArrowRight } from "lucide-react";
 import * as api from "@/lib/api-client";
-import type { VINDecodeResponse } from "@/lib/types";
+import type { VINDecodeResponse, Vehicle } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,10 +16,19 @@ import {
 } from "@/components/ui/card";
 import { toast } from "sonner";
 
-export function VinDecoder() {
+interface VinDecoderProps {
+  onVehicleCreated?: (vehicle: Vehicle) => void;
+  existingVehicles?: Vehicle[];
+}
+
+export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderProps) {
   const [vin, setVin] = useState("");
   const [result, setResult] = useState<VINDecodeResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [duplicate, setDuplicate] = useState<Vehicle | null>(null);
+
+  const canAdd = result?.year && result?.make && result?.model;
 
   async function decode() {
     if (vin.length !== 17) {
@@ -27,6 +36,7 @@ export function VinDecoder() {
       return;
     }
     setLoading(true);
+    setDuplicate(null);
     try {
       const data = await api.decodeVin(vin);
       setResult(data);
@@ -34,6 +44,56 @@ export function VinDecoder() {
       toast.error(err instanceof Error ? err.message : "VIN decode failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function findDuplicate(): Vehicle | undefined {
+    if (!existingVehicles || !result?.year || !result?.make || !result?.model) return undefined;
+    return existingVehicles.find(
+      (v) =>
+        v.quality_status === "approved" &&
+        v.year === result.year &&
+        v.make.toLowerCase() === result.make!.toLowerCase() &&
+        v.model.toLowerCase() === result.model!.toLowerCase()
+    );
+  }
+
+  async function handleAdd() {
+    if (!canAdd) return;
+
+    const existing = findDuplicate();
+    if (existing && !duplicate) {
+      setDuplicate(existing);
+      return;
+    }
+
+    setAdding(true);
+    try {
+      const vehicle = await api.createVehicle({
+        year: result!.year!,
+        make: result!.make!,
+        model: result!.model!,
+        trim: result!.trim,
+        vin_pattern: vin,
+      });
+      toast.success("Vehicle added!");
+      onVehicleCreated?.(vehicle);
+      setResult(null);
+      setVin("");
+      setDuplicate(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add vehicle");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  function handleUseExisting() {
+    if (duplicate) {
+      onVehicleCreated?.(duplicate);
+      setResult(null);
+      setVin("");
+      setDuplicate(null);
     }
   }
 
@@ -93,6 +153,37 @@ export function VinDecoder() {
               </p>
             )}
           </div>
+        )}
+
+        {result && canAdd && onVehicleCreated && (
+          <>
+            {duplicate ? (
+              <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 p-4 text-sm space-y-3">
+                <p>
+                  A matching approved vehicle already exists:{" "}
+                  <span className="font-medium">
+                    {duplicate.year} {duplicate.make} {duplicate.model}
+                    {duplicate.trim ? ` ${duplicate.trim}` : ""}
+                  </span>
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={handleUseExisting}>
+                    <ArrowRight className="mr-2 h-4 w-4" />
+                    Use Existing
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={handleAdd} disabled={adding}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {adding ? "Adding..." : "Add Anyway"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button onClick={handleAdd} disabled={adding} className="w-full">
+                <Plus className="mr-2 h-4 w-4" />
+                {adding ? "Adding..." : "Add This Vehicle"}
+              </Button>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
