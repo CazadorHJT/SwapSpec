@@ -1,9 +1,13 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
+# Use .env.local if it exists (local dev), otherwise .env
+_env_file = ".env.local" if os.path.exists(".env.local") else ".env"
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_env_file, extra="ignore")
 
     database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/postgres"
     secret_key: str = "dev-secret-key-change-in-production"
@@ -12,6 +16,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     supabase_url: str = ""
     supabase_anon_key: str = ""
+    local_dev: bool = False
 
 
 @lru_cache

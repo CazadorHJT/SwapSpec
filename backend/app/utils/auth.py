@@ -5,10 +5,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.user import User
-from app.services.supabase_client import get_supabase_client
+from app.config import get_settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
+
+def _resolve_user_id(token: str) -> str:
+    """Resolve a token to a user ID using local auth or Supabase."""
+    settings = get_settings()
+    if settings.local_dev:
+        from app.services.local_auth import local_get_user
+        result = local_get_user(token)
+        if not result:
+            raise ValueError("Invalid token")
+        return result["user_id"]
+
+    from app.services.supabase_client import get_supabase_client
+    supabase = get_supabase_client()
+    user_response = supabase.auth.get_user(token)
+    if not user_response or not user_response.user:
+        raise ValueError("Invalid token")
+    return user_response.user.id
 
 
 async def get_current_user(
@@ -22,15 +40,11 @@ async def get_current_user(
     )
 
     try:
-        supabase = get_supabase_client()
-        user_response = supabase.auth.get_user(token)
-        if not user_response or not user_response.user:
-            raise credentials_exception
-        supabase_user_id = user_response.user.id
+        user_id = _resolve_user_id(token)
     except Exception:
         raise credentials_exception
 
-    result = await db.execute(select(User).where(User.id == supabase_user_id))
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if user is None:
         raise credentials_exception
@@ -44,13 +58,9 @@ async def get_optional_user(
     if not token:
         return None
     try:
-        supabase = get_supabase_client()
-        user_response = supabase.auth.get_user(token)
-        if not user_response or not user_response.user:
-            return None
-        supabase_user_id = user_response.user.id
+        user_id = _resolve_user_id(token)
     except Exception:
         return None
 
-    result = await db.execute(select(User).where(User.id == supabase_user_id))
+    result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()

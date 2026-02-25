@@ -5,14 +5,33 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse, Token
 from app.utils.auth import get_current_user
-from app.services.supabase_client import get_supabase_client
+from app.config import get_settings
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
-    """Register a new user account via Supabase Auth."""
+    """Register a new user account."""
+    settings = get_settings()
+
+    if settings.local_dev:
+        from app.services.local_auth import local_sign_up
+        try:
+            result = local_sign_up(user_data.email, user_data.password)
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        user = User(
+            id=result["user_id"],
+            email=user_data.email,
+            account_type=user_data.account_type,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    from app.services.supabase_client import get_supabase_client
     supabase = get_supabase_client()
 
     try:
@@ -46,7 +65,22 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
-    """Login via Supabase Auth and get access token."""
+    """Login and get access token."""
+    settings = get_settings()
+
+    if settings.local_dev:
+        from app.services.local_auth import local_sign_in
+        try:
+            result = local_sign_in(user_data.email, user_data.password)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return Token(access_token=result["access_token"])
+
+    from app.services.supabase_client import get_supabase_client
     supabase = get_supabase_client()
 
     try:
