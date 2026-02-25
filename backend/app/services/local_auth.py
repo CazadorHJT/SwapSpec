@@ -3,12 +3,10 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import bcrypt
 import jwt
-from passlib.context import CryptContext
 
 from app.config import get_settings
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # In-memory password store: email -> {hashed_password, user_id}
 _local_users: dict[str, dict] = {}
@@ -18,12 +16,20 @@ def _get_secret():
     return get_settings().secret_key
 
 
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def _verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
+
+
 def local_sign_up(email: str, password: str) -> dict:
     if email in _local_users:
         raise Exception("User already registered")
     user_id = str(uuid.uuid4())
     _local_users[email] = {
-        "hashed_password": pwd_context.hash(password),
+        "hashed_password": _hash_password(password),
         "user_id": user_id,
     }
     return {"user_id": user_id, "email": email}
@@ -31,7 +37,7 @@ def local_sign_up(email: str, password: str) -> dict:
 
 def local_sign_in(email: str, password: str) -> dict:
     record = _local_users.get(email)
-    if not record or not pwd_context.verify(password, record["hashed_password"]):
+    if not record or not _verify_password(password, record["hashed_password"]):
         raise Exception("Incorrect email or password")
     token = jwt.encode(
         {

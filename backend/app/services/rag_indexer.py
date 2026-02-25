@@ -89,7 +89,9 @@ class RAGIndexer:
             extractor.feed(raw)
         except Exception:
             return ""
-        return extractor.get_text()
+        text = extractor.get_text()
+        # Strip null bytes — PostgreSQL UTF-8 rejects \x00
+        return text.replace('\x00', '')
 
     def _path_to_section(self, html_path: Path, root: Path) -> str:
         """Convert a file's path relative to the manual root into 'A > B > C' format."""
