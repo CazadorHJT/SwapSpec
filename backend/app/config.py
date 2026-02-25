@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_anon_key: str = ""
     local_dev: bool = False
+    manuals_storage_path: str = "./manuals"
 
 
 @lru_cache

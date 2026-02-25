@@ -1,12 +1,13 @@
 from typing import Optional
 import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_, func
 from app.config import get_settings
 from app.models.build import Build
 from app.models.engine import Engine
 from app.models.vehicle import Vehicle
 from app.models.transmission import Transmission
+from app.models.manual_chunk import ManualChunk
 from app.schemas.advisor import ChatMessage
 
 settings = get_settings()
@@ -54,8 +55,15 @@ class AdvisorService:
             )
             transmission = trans_result.scalar_one_or_none()
 
+        # Retrieve relevant manual context via RAG
+        manual_context = ""
+        if vehicle:
+            manual_context = await self._retrieve_manual_context(
+                db, vehicle.make, vehicle.model, vehicle.year, message
+            )
+
         # Build system prompt with context
-        system_prompt = self._build_system_prompt(build, engine, vehicle, transmission)
+        system_prompt = self._build_system_prompt(build, engine, vehicle, transmission, manual_context)
 
         # Build messages
         messages = []
@@ -99,6 +107,7 @@ class AdvisorService:
         engine: Optional[Engine],
         vehicle: Optional[Vehicle],
         transmission: Optional[Transmission],
+        manual_context: str = "",
     ) -> str:
         vehicle_info = "Unknown vehicle"
         if vehicle:
@@ -127,6 +136,16 @@ class AdvisorService:
         if build.collision_data:
             collision_info = str(build.collision_data)
 
+        manual_section = ""
+        if manual_context:
+            manual_section = f"""
+MANUAL CONTEXT (from Operation CHARM service manuals)
+═══════════════════════════════════════════
+{manual_context}
+═══════════════════════════════════════════
+
+"""
+
         return f"""You are SwapSpec's AI Build Advisor, an expert assistant for engine swap projects.
 
 Current Build Context:
@@ -141,7 +160,7 @@ Current Build Context:
 {vehicle_specs}
 
 {transmission_specs}
-
+{manual_section}
 ═══════════════════════════════════════════
 CRITICAL DATA INTEGRITY RULES
 ═══════════════════════════════════════════
@@ -337,6 +356,69 @@ Guidelines:
                 note += f" — {transmission.data_source_notes}"
             sources.append(note)
         return sources
+
+    async def _retrieve_manual_context(
+        self,
+        db: AsyncSession,
+        make: str,
+        model: str,
+        year: int,
+        user_question: str,
+    ) -> str:
+        """Full-text search manual_chunks for relevant context. Returns formatted block."""
+        try:
+            stmt = (
+                select(ManualChunk)
+                .where(
+                    and_(
+                        ManualChunk.vehicle_make == make,
+                        ManualChunk.vehicle_model == model,
+                        ManualChunk.vehicle_year == year,
+                        func.to_tsvector("english", ManualChunk.content).op("@@")(
+                            func.plainto_tsquery("english", user_question)
+                        ),
+                    )
+                )
+                .order_by(
+                    func.ts_rank(
+                        func.to_tsvector("english", ManualChunk.content),
+                        func.plainto_tsquery("english", user_question),
+                    ).desc()
+                )
+                .limit(5)
+            )
+            result = await db.execute(stmt)
+            chunks = result.scalars().all()
+        except Exception:
+            # Fall back to ILIKE for SQLite or FTS failures
+            try:
+                keywords = " ".join(user_question.split()[:5])
+                stmt = (
+                    select(ManualChunk)
+                    .where(
+                        and_(
+                            ManualChunk.vehicle_make == make,
+                            ManualChunk.vehicle_model == model,
+                            ManualChunk.vehicle_year == year,
+                            ManualChunk.content.ilike(f"%{keywords}%"),
+                        )
+                    )
+                    .limit(5)
+                )
+                result = await db.execute(stmt)
+                chunks = result.scalars().all()
+            except Exception:
+                return ""
+
+        if not chunks:
+            return ""
+
+        lines = []
+        for chunk in chunks:
+            lines.append(f"[CHARM_MANUAL] {chunk.section_path}")
+            lines.append(chunk.content[:800])
+            lines.append("")
+        return "\n".join(lines).strip()
 
     def _mock_response(
         self,
