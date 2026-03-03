@@ -25,9 +25,8 @@ class AdvisorService:
         self.client = None
         self._provider = None
         if settings.gemini_api_key:
-            import google.generativeai as genai
-            genai.configure(api_key=settings.gemini_api_key)
-            self.client = genai.GenerativeModel("gemini-2.0-flash")
+            from google import genai
+            self.client = genai.Client(api_key=settings.gemini_api_key)
             self._provider = "gemini"
         elif settings.anthropic_api_key:
             import anthropic
@@ -88,7 +87,10 @@ class AdvisorService:
                 for msg in messages[:-1]:
                     full_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
                 full_prompt += f"USER: {messages[-1]['content']}"
-                response = self.client.generate_content(full_prompt)
+                response = self.client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=full_prompt,
+                )
                 reply = response.text
             else:
                 response = self.client.messages.create(

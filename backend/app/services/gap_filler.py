@@ -39,9 +39,8 @@ class GapFiller:
         self._client = None
         self._provider = None
         if settings.gemini_api_key:
-            import google.generativeai as genai
-            genai.configure(api_key=settings.gemini_api_key)
-            self._client = genai.GenerativeModel("gemini-2.0-flash")
+            from google import genai
+            self._client = genai.Client(api_key=settings.gemini_api_key)
             self._provider = "gemini"
         elif settings.anthropic_api_key:
             import anthropic
@@ -98,7 +97,10 @@ class GapFiller:
 
         try:
             if self._provider == "gemini":
-                response = self._client.generate_content(prompt)
+                response = self._client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=prompt,
+                )
                 body_html = response.text.strip()
             else:
                 response = self._client.messages.create(
