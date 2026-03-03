@@ -36,11 +36,17 @@ class FilledSpec:
 
 class GapFiller:
     def __init__(self):
-        if settings.anthropic_api_key:
+        self._client = None
+        self._provider = None
+        if settings.gemini_api_key:
+            import google.generativeai as genai
+            genai.configure(api_key=settings.gemini_api_key)
+            self._client = genai.GenerativeModel("gemini-2.0-flash")
+            self._provider = "gemini"
+        elif settings.anthropic_api_key:
             import anthropic
             self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        else:
-            self._client = None
+            self._provider = "anthropic"
 
     async def fill_gaps(
         self,
@@ -91,12 +97,16 @@ class GapFiller:
         """).strip()
 
         try:
-            response = self._client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=512,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            body_html = response.content[0].text.strip()
+            if self._provider == "gemini":
+                response = self._client.generate_content(prompt)
+                body_html = response.text.strip()
+            else:
+                response = self._client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=512,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                body_html = response.content[0].text.strip()
         except Exception:
             return None
 

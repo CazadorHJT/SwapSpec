@@ -1,5 +1,4 @@
 from typing import Optional
-import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from app.config import get_settings
@@ -23,10 +22,17 @@ SOURCE_LABELS = {
 
 class AdvisorService:
     def __init__(self):
-        if settings.anthropic_api_key:
+        self.client = None
+        self._provider = None
+        if settings.gemini_api_key:
+            import google.generativeai as genai
+            genai.configure(api_key=settings.gemini_api_key)
+            self.client = genai.GenerativeModel("gemini-2.0-flash")
+            self._provider = "gemini"
+        elif settings.anthropic_api_key:
+            import anthropic
             self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        else:
-            self.client = None
+            self._provider = "anthropic"
 
     async def chat(
         self,
@@ -77,14 +83,24 @@ class AdvisorService:
             return self._mock_response(message, engine, vehicle), ["Mock response - API key not configured"]
 
         try:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1024,
-                system=system_prompt,
-                messages=messages,
-            )
+            if self._provider == "gemini":
+                full_prompt = f"{system_prompt}\n\n"
+                for msg in messages[:-1]:
+                    full_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
+                full_prompt += f"USER: {messages[-1]['content']}"
+                response = self.client.generate_content(full_prompt)
+                reply = response.text
+            else:
+                response = self.client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=1024,
+                    system=system_prompt,
+                    messages=messages,
+                )
+                reply = response.content[0].text
+
             sources = self._extract_sources(engine, vehicle, transmission)
-            return response.content[0].text, sources
+            return reply, sources
         except Exception as e:
             return f"Error communicating with AI advisor: {str(e)}", []
 
