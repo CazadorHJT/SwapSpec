@@ -25,10 +25,13 @@ class AdvisorService:
         self.client = None
         self._provider = None
         if settings.gemini_api_key:
-            from google import genai
-            self.client = genai.Client(api_key=settings.gemini_api_key)
-            self._provider = "gemini"
-        elif settings.anthropic_api_key:
+            try:
+                from google import genai
+                self.client = genai.Client(api_key=settings.gemini_api_key)
+                self._provider = "gemini"
+            except ImportError:
+                pass
+        if self._provider is None and settings.anthropic_api_key:
             import anthropic
             self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
             self._provider = "anthropic"
