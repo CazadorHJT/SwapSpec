@@ -4,11 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SwapSpec is an AI-driven engine swap planning platform. The repo has four components:
+SwapSpec is an AI-driven engine swap planning platform. The repo has three components:
 - **`backend/`** — Python FastAPI REST API
 - **`web/`** — Next.js TypeScript frontend (App Router)
 - **`mobile/`** — React Native / Expo mobile app (iOS + Android)
-- **`unity/`** — C# Unity mobile app (legacy, being superseded by `mobile/`)
 
 All clients talk exclusively to the FastAPI backend. None of them access Supabase directly.
 
@@ -66,10 +65,6 @@ npm run android    # open Android Emulator
 
 **Adding packages**: Always use `npx expo install <package>` instead of plain `npm install` so Expo picks the SDK-compatible version automatically.
 
-### Unity
-
-No build step outside the Unity Editor. Scripts compile when opened in Unity 2022.3+.
-
 ## Architecture
 
 ### How the Components Connect
@@ -77,7 +72,7 @@ No build step outside the Unity Editor. Scripts compile when opened in Unity 202
 ```
 Browser (web/)    ──→ FastAPI (backend/) ──→ Supabase (Auth, PostgreSQL, Storage)
 Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
-Unity (unity/)    ──→ FastAPI (backend/) ──↗        ├── CarQuery API (engine/vehicle specs)
+                                                    ├── CarQuery API (engine/vehicle specs)
                                                     ├── NHTSA vPIC API (VIN decoding)
                                                     └── charm.li (service manual ZIPs)
 ```
