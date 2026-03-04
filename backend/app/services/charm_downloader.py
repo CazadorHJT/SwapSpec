@@ -1,5 +1,6 @@
 import asyncio
 import difflib
+import re
 import zipfile
 from pathlib import Path
 from typing import Optional
@@ -49,14 +50,41 @@ class CharmDownloader:
 
     def _best_match(self, variants: list[str], model: str) -> Optional[str]:
         """Fuzzy-match model against variant list. Returns best match or None."""
+        # Try difflib against full variant names first
         matches = difflib.get_close_matches(model, variants, n=1, cutoff=0.4)
         if matches:
             return matches[0]
-        # Fall back: substring match (case-insensitive)
+
+        # Extract model name part (strip engine specs like "L4-2.4L ...", "V6-3.0L ...")
+        def extract_model_part(variant: str) -> str:
+            return re.sub(r'\s+[LV]\d[-\s\d].*', '', variant, flags=re.IGNORECASE).strip()
+
+        # Normalize: remove spaces/hyphens and lowercase for comparison
+        def normalize(s: str) -> str:
+            return s.lower().replace(' ', '').replace('-', '')
+
+        model_norm = normalize(model)
+        variant_parts = [(v, extract_model_part(v)) for v in variants]
+
+        # Try difflib against extracted model parts (shorter = better ratio)
+        model_parts = [vp[1] for vp in variant_parts]
+        matches = difflib.get_close_matches(model, model_parts, n=1, cutoff=0.3)
+        if matches:
+            for full_v, part in variant_parts:
+                if part == matches[0]:
+                    return full_v
+
+        # Normalize substring match (handles "4Runner" == "4 Runner", etc.)
+        for full_v, part in variant_parts:
+            if model_norm in normalize(part):
+                return full_v
+
+        # Last resort: plain substring match
         model_lower = model.lower()
         for v in variants:
             if model_lower in v.lower():
                 return v
+
         return None
 
     async def _download_zip(
