@@ -7,7 +7,8 @@ settings = get_settings()
 _connect_args = {}
 if "asyncpg" in settings.database_url:
     # Disable prepared statement caching for pgBouncer (Supabase pooler)
-    _connect_args = {"statement_cache_size": 0}
+    # 10s connect timeout prevents hanging on DB startup
+    _connect_args = {"statement_cache_size": 0, "timeout": 10}
 
 engine = create_async_engine(
     settings.database_url,
