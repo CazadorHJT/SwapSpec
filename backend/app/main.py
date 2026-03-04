@@ -78,4 +78,4 @@ async def health_check():
         db_status = "connected"
     except Exception as e:
         db_status = f"error: {str(e)}"
-    return {"status": "healthy", "db": db_status}
+    return {"status": "healthy", "db": db_status, "version": "v6"}
