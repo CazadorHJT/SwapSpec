@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.build import BuildCreate, BuildResponse, BuildUpdate, BuildList, BuildExport
 from app.services.pdf_service import PDFService
 from app.services.manual_ingestor import ManualIngestor
+from app.services.vin_decoder import VINDecoderService
 from app.utils.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -113,15 +114,27 @@ async def create_build(
     vehicle_result2 = await db.execute(select(Vehicle).where(Vehicle.id == build_data.vehicle_id))
     vehicle = vehicle_result2.scalar_one_or_none()
     if vehicle:
+        # Use VIN to get drivetrain/cylinder hints for better charm.li variant matching
+        drive_type, cylinders = None, None
+        if vehicle.vin_pattern:
+            try:
+                vin_svc = VINDecoderService()
+                # vin_pattern stores the first 11 chars; pad to 17 for decode attempt
+                vin_decoded = await vin_svc.decode(vehicle.vin_pattern.ljust(17, "0"))
+                drive_type = vin_decoded.drive_type
+                cylinders = vin_decoded.cylinders
+            except Exception:
+                pass
+
         job_id = await _ingestor.start_ingest(
             vehicle.year, vehicle.make, vehicle.model, build_data.vehicle_id, db
         )
         background_tasks.add_task(
             _ingestor.run_pipeline,
             job_id, vehicle.year, vehicle.make, vehicle.model,
-            build_data.vehicle_id, db, None,
+            build_data.vehicle_id, db, None, drive_type, cylinders,
         )
-        logger.info(f"Queued manual ingest for {vehicle.year} {vehicle.make} {vehicle.model} (job {job_id})")
+        logger.info(f"Queued manual ingest for {vehicle.year} {vehicle.make} {vehicle.model} drive={drive_type} cyl={cylinders} (job {job_id})")
 
     return build
 

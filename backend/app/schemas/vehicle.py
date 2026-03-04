@@ -56,4 +56,7 @@ class VINDecodeResponse(BaseModel):
     model: Optional[str] = None
     trim: Optional[str] = None
     engine: Optional[str] = None
+    drive_type: Optional[str] = None     # e.g. "4x4", "4x2", "AWD"
+    cylinders: Optional[int] = None      # e.g. 4, 6, 8
+    displacement_l: Optional[float] = None
     raw_data: Optional[dict] = None

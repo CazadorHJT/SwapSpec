@@ -26,12 +26,28 @@ class VINDecoderService:
                 # Parse NHTSA response
                 results = data.get("Results", [])
                 parsed = self._parse_results(results)
+                # Parse cylinders as int if present
+                cylinders = parsed.get("cylinders")
+                if cylinders:
+                    try:
+                        cylinders = int(cylinders)
+                    except (ValueError, TypeError):
+                        cylinders = None
+                displacement = parsed.get("displacement_l")
+                if displacement:
+                    try:
+                        displacement = round(float(displacement), 1)
+                    except (ValueError, TypeError):
+                        displacement = None
                 return VINDecodeResponse(
                     year=parsed.get("year"),
                     make=parsed.get("make"),
                     model=parsed.get("model"),
                     trim=parsed.get("trim"),
                     engine=parsed.get("engine"),
+                    drive_type=parsed.get("drive_type"),
+                    cylinders=cylinders,
+                    displacement_l=displacement,
                     raw_data=data,
                 )
         except httpx.HTTPError as e:
@@ -48,7 +64,9 @@ class VINDecoderService:
             "Model": "model",
             "Trim": "trim",
             "Engine Model": "engine",
-            "Displacement (L)": "displacement",
+            "Displacement (L)": "displacement_l",
+            "Drive Type": "drive_type",
+            "Engine Number of Cylinders": "cylinders",
         }
 
         for item in results:

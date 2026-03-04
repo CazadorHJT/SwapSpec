@@ -70,6 +70,8 @@ class ManualIngestor:
         vehicle_id: Optional[str],
         db: AsyncSession,
         manual_dir_override: Optional[str] = None,
+        drive_type: Optional[str] = None,
+        cylinders: Optional[int] = None,
     ) -> None:
         """Full pipeline: download → extract → analyze → fill → index.
 
@@ -94,7 +96,8 @@ class ManualIngestor:
                 job.stage = "downloading"
                 downloader = CharmDownloader()
                 zip_path = await downloader.find_and_download(
-                    year, make, model, base_path / "zips"
+                    year, make, model, base_path / "zips",
+                    drive_type=drive_type, cylinders=cylinders,
                 )
                 if not zip_path:
                     job.status = "failed"

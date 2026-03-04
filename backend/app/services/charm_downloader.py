@@ -11,14 +11,20 @@ class CharmDownloader:
     BASE = "https://charm.li"
 
     async def find_and_download(
-        self, year: int, make: str, model: str, dest_dir: Path
+        self,
+        year: int,
+        make: str,
+        model: str,
+        dest_dir: Path,
+        drive_type: Optional[str] = None,
+        cylinders: Optional[int] = None,
     ) -> Optional[Path]:
         """Find the best-matching vehicle variant and download its ZIP. Returns zip path or None."""
         variants = await self._fetch_year_index(make, year)
         if not variants:
             return None
 
-        best = self._best_match(variants, model)
+        best = self._best_match(variants, model, drive_type=drive_type, cylinders=cylinders)
         if not best:
             return None
 
@@ -48,7 +54,13 @@ class CharmDownloader:
                     variants.append(unquote(segment))
         return list(dict.fromkeys(variants))  # deduplicate, preserve order
 
-    def _best_match(self, variants: list[str], model: str) -> Optional[str]:
+    def _best_match(
+        self,
+        variants: list[str],
+        model: str,
+        drive_type: Optional[str] = None,
+        cylinders: Optional[int] = None,
+    ) -> Optional[str]:
         """Fuzzy-match model against variant list. Returns best match or None."""
         # Try difflib against full variant names first
         matches = difflib.get_close_matches(model, variants, n=1, cutoff=0.4)
@@ -75,9 +87,10 @@ class CharmDownloader:
                     return full_v
 
         # Normalize substring match (handles "4Runner" == "4 Runner", etc.)
-        for full_v, part in variant_parts:
-            if model_norm in normalize(part):
-                return full_v
+        # Collect all candidates then pick highest-scoring one
+        candidates = [full_v for full_v, part in variant_parts if model_norm in normalize(part)]
+        if candidates:
+            return max(candidates, key=lambda v: self._score_variant(v, drive_type, cylinders))
 
         # Last resort: plain substring match
         model_lower = model.lower()
@@ -86,6 +99,27 @@ class CharmDownloader:
                 return v
 
         return None
+
+    def _score_variant(
+        self, variant: str, drive_type: Optional[str], cylinders: Optional[int]
+    ) -> int:
+        """Score a variant higher if it matches known drivetrain/engine hints."""
+        score = 0
+        v_lower = variant.lower()
+        if drive_type:
+            # Normalize "4x4"/"4WD"/"four wheel" → "4wd"
+            dt = drive_type.lower().replace("x", "").replace(" ", "")
+            if dt in ("44", "4wd", "awd") and "4wd" in v_lower:
+                score += 2
+            elif dt in ("42", "2wd", "rwd", "fwd") and "2wd" in v_lower:
+                score += 2
+        if cylinders:
+            cyl_tags = {4: ("l4", "i4", "4-cyl"), 6: ("l6", "v6", "i6", "6-cyl"), 8: ("v8", "8-cyl")}
+            for tag in cyl_tags.get(cylinders, ()):
+                if tag in v_lower:
+                    score += 1
+                    break
+        return score
 
     async def _download_zip(
         self, make: str, year: int, variant: str, dest: Path
