@@ -152,6 +152,21 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
                 <span className="font-medium">Engine:</span> {result.engine}
               </p>
             )}
+            {result.drive_type && (
+              <p>
+                <span className="font-medium">Drive Type:</span> {result.drive_type}
+              </p>
+            )}
+            {result.cylinders && (
+              <p>
+                <span className="font-medium">Cylinders:</span> {result.cylinders}
+              </p>
+            )}
+            {result.displacement_l && (
+              <p>
+                <span className="font-medium">Displacement:</span> {result.displacement_l}L
+              </p>
+            )}
           </div>
         )}
 

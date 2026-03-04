@@ -101,6 +101,9 @@ export interface VINDecodeResponse {
   model?: string;
   trim?: string;
   engine?: string;
+  drive_type?: string;
+  cylinders?: number;
+  displacement_l?: number;
   raw_data?: Record<string, unknown>;
 }
 
