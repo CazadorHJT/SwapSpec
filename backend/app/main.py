@@ -69,13 +69,18 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    return {"status": "healthy", "version": "v6"}
+
+
+@app.get("/health/db")
+async def db_health_check():
+    import asyncio
     from app.database import engine
     from sqlalchemy import text
-    db_status = "unknown"
     try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        db_status = "connected"
+        async with asyncio.timeout(5):
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        return {"db": "connected"}
     except Exception as e:
-        db_status = f"error: {str(e)}"
-    return {"status": "healthy", "db": db_status, "version": "v6"}
+        return {"db": f"error: {str(e)}"}
