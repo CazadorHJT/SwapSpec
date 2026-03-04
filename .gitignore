@@ -39,6 +39,7 @@ Thumbs.db
 [Bb]uild/
 [Bb]uilds/
 !web/src/components/builds/
+!web/src/app/(app)/builds/
 [Ll]ogs/
 [Mm]emoryCaptures/
 *.cginc
