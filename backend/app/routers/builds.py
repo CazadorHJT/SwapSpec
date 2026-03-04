@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import logging
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -10,10 +11,13 @@ from app.models.transmission import Transmission
 from app.models.user import User
 from app.schemas.build import BuildCreate, BuildResponse, BuildUpdate, BuildList, BuildExport
 from app.services.pdf_service import PDFService
+from app.services.manual_ingestor import ManualIngestor
 from app.utils.auth import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/builds", tags=["Builds"])
 pdf_service = PDFService()
+_ingestor = ManualIngestor()
 
 
 @router.get("", response_model=BuildList)
@@ -61,6 +65,7 @@ async def get_build(
 @router.post("", response_model=BuildResponse, status_code=status.HTTP_201_CREATED)
 async def create_build(
     build_data: BuildCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -103,6 +108,21 @@ async def create_build(
     db.add(build)
     await db.commit()
     await db.refresh(build)
+
+    # Auto-trigger manual ingest for the vehicle in the background
+    vehicle_result2 = await db.execute(select(Vehicle).where(Vehicle.id == build_data.vehicle_id))
+    vehicle = vehicle_result2.scalar_one_or_none()
+    if vehicle:
+        job_id = await _ingestor.start_ingest(
+            vehicle.year, vehicle.make, vehicle.model, build_data.vehicle_id, db
+        )
+        background_tasks.add_task(
+            _ingestor.run_pipeline,
+            job_id, vehicle.year, vehicle.make, vehicle.model,
+            build_data.vehicle_id, db, None,
+        )
+        logger.info(f"Queued manual ingest for {vehicle.year} {vehicle.make} {vehicle.model} (job {job_id})")
+
     return build
 
 
