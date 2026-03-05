@@ -30,12 +30,12 @@ async def ingest_manual(
     Returns immediately with a job_id if not already indexed, or
     status='already_indexed' if chunks already exist.
     """
-    # Check if already indexed
+    # Check if already indexed (case-insensitive make/model)
     count_result = await db.execute(
         select(func.count(ManualChunk.id)).where(
             and_(
-                ManualChunk.vehicle_make == request.make,
-                ManualChunk.vehicle_model == request.model,
+                func.lower(ManualChunk.vehicle_make) == request.make.lower(),
+                func.lower(ManualChunk.vehicle_model) == request.model.lower(),
                 ManualChunk.vehicle_year == request.year,
             )
         )
@@ -145,8 +145,8 @@ async def search_manual_chunks(
             select(ManualChunk)
             .where(
                 and_(
-                    ManualChunk.vehicle_make == make,
-                    ManualChunk.vehicle_model == model,
+                    func.lower(ManualChunk.vehicle_make) == make.lower(),
+                    func.lower(ManualChunk.vehicle_model) == model.lower(),
                     ManualChunk.vehicle_year == year,
                     func.to_tsvector("english", ManualChunk.content).op("@@")(
                         func.plainto_tsquery("english", q)
@@ -169,8 +169,8 @@ async def search_manual_chunks(
             select(ManualChunk)
             .where(
                 and_(
-                    ManualChunk.vehicle_make == make,
-                    ManualChunk.vehicle_model == model,
+                    ManualChunk.vehicle_make.ilike(make),
+                    ManualChunk.vehicle_model.ilike(model),
                     ManualChunk.vehicle_year == year,
                     ManualChunk.content.ilike(f"%{q}%"),
                 )
