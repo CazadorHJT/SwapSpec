@@ -110,31 +110,84 @@ async def create_build(
     await db.commit()
     await db.refresh(build)
 
-    # Auto-trigger manual ingest for the vehicle in the background
+    # Load full entity objects for ingest decisions
     vehicle_result2 = await db.execute(select(Vehicle).where(Vehicle.id == build_data.vehicle_id))
     vehicle = vehicle_result2.scalar_one_or_none()
+
+    engine_result2 = await db.execute(select(Engine).where(Engine.id == build_data.engine_id))
+    engine_obj = engine_result2.scalar_one_or_none()
+
+    transmission_obj = None
+    if build_data.transmission_id:
+        trans_result2 = await db.execute(select(Transmission).where(Transmission.id == build_data.transmission_id))
+        transmission_obj = trans_result2.scalar_one_or_none()
+
+    # 1. Chassis manual ingest (target vehicle)
     if vehicle:
-        # Use VIN to get drivetrain/cylinder hints for better charm.li variant matching
         drive_type, cylinders = None, None
         if vehicle.vin_pattern:
             try:
                 vin_svc = VINDecoderService()
-                # vin_pattern stores the first 11 chars; pad to 17 for decode attempt
                 vin_decoded = await vin_svc.decode(vehicle.vin_pattern.ljust(17, "0"))
                 drive_type = vin_decoded.drive_type
                 cylinders = vin_decoded.cylinders
             except Exception:
                 pass
 
-        job_id = await _ingestor.start_ingest(
+        job_id_chassis = await _ingestor.start_ingest(
             vehicle.year, vehicle.make, vehicle.model, build_data.vehicle_id, db
         )
         background_tasks.add_task(
             _ingestor.run_pipeline,
-            job_id, vehicle.year, vehicle.make, vehicle.model,
+            job_id_chassis, vehicle.year, vehicle.make, vehicle.model,
             build_data.vehicle_id, db, None, drive_type, cylinders,
+            scope="chassis",
         )
-        logger.info(f"Queued manual ingest for {vehicle.year} {vehicle.make} {vehicle.model} drive={drive_type} cyl={cylinders} (job {job_id})")
+        logger.info(
+            f"Queued chassis ingest: {vehicle.year} {vehicle.make} {vehicle.model} "
+            f"drive={drive_type} cyl={cylinders} (job {job_id_chassis})"
+        )
+
+    # 2. Engine donor vehicle manual ingest
+    if engine_obj and engine_obj.origin_year and engine_obj.origin_make and engine_obj.origin_model:
+        job_id_engine = await _ingestor.start_ingest(
+            engine_obj.origin_year, engine_obj.origin_make, engine_obj.origin_model,
+            None, db,
+        )
+        background_tasks.add_task(
+            _ingestor.run_pipeline,
+            job_id_engine,
+            engine_obj.origin_year, engine_obj.origin_make, engine_obj.origin_model,
+            None, db, None, None, None,
+            scope="engine",
+            engine_id=str(engine_obj.id),
+        )
+        logger.info(
+            f"Queued engine ingest: {engine_obj.origin_year} {engine_obj.origin_make} "
+            f"{engine_obj.origin_model} for engine {engine_obj.id} (job {job_id_engine})"
+        )
+
+    # 3. Transmission donor vehicle manual ingest
+    if (transmission_obj and transmission_obj.origin_year
+            and transmission_obj.origin_make and transmission_obj.origin_model):
+        job_id_trans = await _ingestor.start_ingest(
+            transmission_obj.origin_year, transmission_obj.origin_make,
+            transmission_obj.origin_model, None, db,
+        )
+        background_tasks.add_task(
+            _ingestor.run_pipeline,
+            job_id_trans,
+            transmission_obj.origin_year, transmission_obj.origin_make,
+            transmission_obj.origin_model,
+            None, db, None, None, None,
+            scope="transmission",
+            transmission_id=str(transmission_obj.id),
+        )
+        logger.info(
+            f"Queued transmission ingest: {transmission_obj.origin_year} "
+            f"{transmission_obj.origin_make} {transmission_obj.origin_model} "
+            f"for transmission {transmission_obj.id} (job {job_id_trans})"
+        )
 
     return build
 

@@ -29,6 +29,11 @@ class TransmissionBase(BaseModel):
     data_sources: Optional[dict] = None
     data_source_notes: Optional[str] = None
 
+    # Donor vehicle — which chassis manual contains docs for this transmission
+    origin_year:  Optional[int] = None
+    origin_make:  Optional[str] = None
+    origin_model: Optional[str] = None
+
 
 class TransmissionCreate(TransmissionBase):
     pass

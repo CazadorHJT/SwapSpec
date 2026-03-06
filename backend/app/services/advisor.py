@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, or_, func
 from app.config import get_settings
 from app.models.build import Build
 from app.models.engine import Engine
@@ -17,6 +17,15 @@ SOURCE_LABELS = {
     "carquery_api": "API",
     "nhtsa_api": "API",
     "user_contributed": "USER",
+}
+
+# Chunk data_source → display label
+CHUNK_SOURCE_LABELS = {
+    "charm_li": "CHARM_MANUAL",
+    "charm_li_vision": "CHARM_MANUAL - DIAGRAM EXTRACTED",
+    "charm_li_stub": "CHARM_MANUAL - DIAGRAM EXISTS (visual only)",
+    "gap_filled_ai": "CHARM_MANUAL - AI FILLED",
+    "user_uploaded": "USER_UPLOADED_MANUAL",
 }
 
 
@@ -63,29 +72,25 @@ class AdvisorService:
             )
             transmission = trans_result.scalar_one_or_none()
 
-        # Retrieve relevant manual context via RAG
-        manual_context = ""
-        if vehicle:
-            manual_context = await self._retrieve_manual_context(
-                db, vehicle.make, vehicle.model, vehicle.year, message
-            )
-
-        # Build system prompt with context
-        system_prompt = self._build_system_prompt(build, engine, vehicle, transmission, manual_context)
-
-        # Build messages
-        messages = []
-        if conversation_history:
-            for msg in conversation_history:
-                messages.append({"role": msg.role, "content": msg.content})
-        messages.append({"role": "user", "content": message})
-
         # Call LLM
         if not self.client:
             return self._mock_response(message, engine, vehicle), ["Mock response - API key not configured"]
 
         try:
             if self._provider == "gemini":
+                # Gemini: keep existing pre-fetch RAG (no tool use support in this path)
+                manual_context = ""
+                if vehicle:
+                    manual_context = await self._retrieve_manual_context(
+                        db, vehicle.make, vehicle.model, vehicle.year, message
+                    )
+                system_prompt = self._build_system_prompt(build, engine, vehicle, transmission, manual_context)
+                messages = []
+                if conversation_history:
+                    for msg in conversation_history:
+                        messages.append({"role": msg.role, "content": msg.content})
+                messages.append({"role": "user", "content": message})
+
                 full_prompt = f"{system_prompt}\n\n"
                 for msg in messages[:-1]:
                     full_prompt += f"{msg['role'].upper()}: {msg['content']}\n\n"
@@ -95,19 +100,233 @@ class AdvisorService:
                     contents=full_prompt,
                 )
                 reply = response.text
-            else:
-                response = self.client.messages.create(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=1024,
-                    system=system_prompt,
-                    messages=messages,
-                )
-                reply = response.content[0].text
+                sources = self._extract_sources(engine, vehicle, transmission)
+                return reply, sources
 
-            sources = self._extract_sources(engine, vehicle, transmission)
-            return reply, sources
+            else:
+                # Anthropic: tool-use loop with build-scoped search_manual tool
+                return await self._anthropic_tool_loop(
+                    db, build, engine, vehicle, transmission,
+                    message, conversation_history,
+                )
+
         except Exception as e:
             return f"Error communicating with AI advisor: {str(e)}", []
+
+    # -------------------------------------------------------------------------
+    # Anthropic tool-use loop
+    # -------------------------------------------------------------------------
+
+    async def _anthropic_tool_loop(
+        self,
+        db: AsyncSession,
+        build: Build,
+        engine: Optional[Engine],
+        vehicle: Optional[Vehicle],
+        transmission: Optional[Transmission],
+        message: str,
+        conversation_history: Optional[list[ChatMessage]],
+    ) -> tuple[str, list[str]]:
+        tool = self._build_search_tool(build, engine, vehicle, transmission)
+        system_prompt = self._build_system_prompt(build, engine, vehicle, transmission)
+
+        messages = []
+        if conversation_history:
+            for msg in conversation_history:
+                messages.append({"role": msg.role, "content": msg.content})
+        messages.append({"role": "user", "content": message})
+
+        max_iterations = 5
+        for _ in range(max_iterations):
+            response = self.client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=system_prompt,
+                tools=[tool],
+                messages=messages,
+            )
+
+            if response.stop_reason == "end_turn":
+                reply = next(
+                    (b.text for b in response.content if hasattr(b, "text")), ""
+                )
+                return reply, self._extract_sources(engine, vehicle, transmission)
+
+            if response.stop_reason == "tool_use":
+                messages.append({"role": "assistant", "content": response.content})
+                tool_results = []
+                for block in response.content:
+                    if block.type == "tool_use":
+                        result = await self._execute_search_tool(
+                            block.input.get("query", ""),
+                            block.input.get("component", "any"),
+                            build, db,
+                        )
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result,
+                        })
+                messages.append({"role": "user", "content": tool_results})
+            else:
+                # Unexpected stop reason — extract any text and return
+                break
+
+        # Fallback: extract text from last response if available
+        try:
+            reply = next(
+                (b.text for b in response.content if hasattr(b, "text")), ""
+            )
+            if reply:
+                return reply, self._extract_sources(engine, vehicle, transmission)
+        except Exception:
+            pass
+        return "I had trouble generating a response. Please try again.", []
+
+    def _build_search_tool(
+        self,
+        build: Build,
+        engine: Optional[Engine],
+        vehicle: Optional[Vehicle],
+        transmission: Optional[Transmission],
+    ) -> dict:
+        """Build the search_manual tool definition scoped to this build's components."""
+        chassis_label = f"{vehicle.year} {vehicle.make} {vehicle.model}" if vehicle else "chassis"
+        engine_label = f"{engine.make} {engine.model}" if engine else None
+        trans_label = f"{transmission.make} {transmission.model}" if transmission else None
+
+        component_enum = ["chassis"]
+        if engine_label:
+            component_enum.append("engine")
+        if trans_label:
+            component_enum.append("transmission")
+        component_enum.append("any")
+
+        description_parts = [f"- chassis: {chassis_label} service manual"]
+        if engine_label:
+            description_parts.append(f"- engine: {engine_label} factory manual")
+        if trans_label:
+            description_parts.append(f"- transmission: {trans_label} factory manual")
+
+        return {
+            "name": "search_manual",
+            "description": (
+                "Search the factory service manuals for this build. Available manuals:\n"
+                + "\n".join(description_parts)
+                + "\n\nResults are ONLY from these specific components — no other vehicles."
+                + "\nUse this whenever you need wiring diagrams, torque specs, procedures, "
+                "connector pinouts, or any other factory documentation."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": (
+                            "What to search for "
+                            "(e.g. 'TPS sensor wiring diagram', 'engine mount torque specs')"
+                        ),
+                    },
+                    "component": {
+                        "type": "string",
+                        "enum": component_enum,
+                        "description": (
+                            "Which component's manual to search. Use 'any' if unsure."
+                        ),
+                    },
+                },
+                "required": ["query", "component"],
+            },
+        }
+
+    async def _execute_search_tool(
+        self,
+        query: str,
+        component: str,
+        build: Build,
+        db: AsyncSession,
+    ) -> str:
+        """Execute a search_manual tool call and return formatted results."""
+        # Build scope filter based on component requested
+        if component == "chassis":
+            scope_filter = and_(
+                ManualChunk.scope == "chassis",
+                ManualChunk.vehicle_id == build.vehicle_id,
+            )
+        elif component == "engine":
+            scope_filter = and_(
+                ManualChunk.scope == "engine",
+                ManualChunk.engine_id == build.engine_id,
+            )
+        elif component == "transmission":
+            scope_filter = and_(
+                ManualChunk.scope == "transmission",
+                ManualChunk.transmission_id == build.transmission_id,
+            )
+        else:  # "any"
+            scope_filter = or_(
+                and_(
+                    ManualChunk.scope == "chassis",
+                    ManualChunk.vehicle_id == build.vehicle_id,
+                ),
+                and_(
+                    ManualChunk.scope == "engine",
+                    ManualChunk.engine_id == build.engine_id,
+                ),
+                and_(
+                    ManualChunk.scope == "transmission",
+                    ManualChunk.transmission_id == build.transmission_id,
+                ),
+            )
+
+        try:
+            stmt = (
+                select(ManualChunk)
+                .where(
+                    and_(
+                        scope_filter,
+                        func.to_tsvector("english", ManualChunk.content).op("@@")(
+                            func.plainto_tsquery("english", query)
+                        ),
+                    )
+                )
+                .order_by(
+                    func.ts_rank(
+                        func.to_tsvector("english", ManualChunk.content),
+                        func.plainto_tsquery("english", query),
+                    ).desc()
+                )
+                .limit(5)
+            )
+            result = await db.execute(stmt)
+            chunks = result.scalars().all()
+        except Exception:
+            # ILIKE fallback for SQLite / FTS failure
+            try:
+                stmt = (
+                    select(ManualChunk)
+                    .where(and_(scope_filter, ManualChunk.content.ilike(f"%{query}%")))
+                    .limit(5)
+                )
+                result = await db.execute(stmt)
+                chunks = result.scalars().all()
+            except Exception:
+                return f"Search failed for: {query}"
+
+        if not chunks:
+            return f"No results found in {component} manual for: {query}"
+
+        lines = []
+        for chunk in chunks:
+            label = CHUNK_SOURCE_LABELS.get(chunk.data_source, "MANUAL")
+            lines.append(f"[{label}] {chunk.section_path}")
+            lines.append(chunk.content[:600])
+            lines.append("")
+        return "\n".join(lines).strip()
+
+    # -------------------------------------------------------------------------
+    # Prompt builders
+    # -------------------------------------------------------------------------
 
     def _format_spec(self, label: str, value, unit: str, source: Optional[str]) -> str:
         """Format a single spec line with source indicator."""
@@ -157,6 +376,16 @@ class AdvisorService:
         if build.collision_data:
             collision_info = str(build.collision_data)
 
+        # Manual availability summary for system prompt
+        manual_lines = [f"  - chassis: {vehicle_info} service manual"]
+        if engine:
+            engine_label = f"{engine.make} {engine.model}"
+            manual_lines.append(f"  - engine: {engine_label} factory manual")
+        if transmission:
+            trans_label = f"{transmission.make} {transmission.model}"
+            manual_lines.append(f"  - transmission: {trans_label} factory manual")
+        manuals_section = "\n".join(manual_lines)
+
         manual_section = ""
         if manual_context:
             manual_section = f"""
@@ -182,6 +411,26 @@ Current Build Context:
 
 {transmission_specs}
 {manual_section}
+═══════════════════════════════════════════
+AVAILABLE FACTORY SERVICE MANUALS
+═══════════════════════════════════════════
+
+You have access to a `search_manual` tool that searches these manuals:
+{manuals_section}
+
+Use `search_manual` whenever you need:
+- Wiring diagrams or connector pinouts
+- Torque specifications
+- Removal/installation procedures
+- Sensor locations or part numbers
+- Any other factory documentation
+
+Call it up to 3 times with targeted queries before responding.
+If the user's question is ambiguous about which component they mean (e.g. "the sensor"),
+ask one clarifying question before searching.
+The build context tells you exactly which car, engine, and transmission are being used —
+you do not need the user to repeat this information.
+
 ═══════════════════════════════════════════
 CRITICAL DATA INTEGRITY RULES
 ═══════════════════════════════════════════
@@ -386,7 +635,7 @@ Guidelines:
         year: int,
         user_question: str,
     ) -> str:
-        """Full-text search manual_chunks for relevant context. Returns formatted block."""
+        """Fallback pre-fetch RAG used by Gemini path. Full-text search manual_chunks."""
         try:
             stmt = (
                 select(ManualChunk)
@@ -411,7 +660,6 @@ Guidelines:
             result = await db.execute(stmt)
             chunks = result.scalars().all()
         except Exception:
-            # Fall back to ILIKE for SQLite or FTS failures
             try:
                 keywords = " ".join(user_question.split()[:5])
                 stmt = (
@@ -436,7 +684,8 @@ Guidelines:
 
         lines = []
         for chunk in chunks:
-            lines.append(f"[CHARM_MANUAL] {chunk.section_path}")
+            label = CHUNK_SOURCE_LABELS.get(chunk.data_source, "MANUAL")
+            lines.append(f"[{label}] {chunk.section_path}")
             lines.append(chunk.content[:800])
             lines.append("")
         return "\n".join(lines).strip()

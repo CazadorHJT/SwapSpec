@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 from sqlalchemy import String, Float, Integer, DateTime, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
@@ -37,5 +38,10 @@ class Transmission(Base):
     # Data provenance
     data_sources: Mapped[dict] = mapped_column(JSON, nullable=True)
     data_source_notes: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # Donor vehicle — which chassis manual contains docs for this transmission
+    origin_year:  Mapped[Optional[int]] = mapped_column(Integer,     nullable=True)
+    origin_make:  Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    origin_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

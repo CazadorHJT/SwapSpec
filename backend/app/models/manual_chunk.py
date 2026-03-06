@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 from sqlalchemy import String, Integer, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
@@ -38,5 +39,16 @@ class ManualChunk(Base):
 
     # URL used if gap-filled from web
     source_url: Mapped[str] = mapped_column(String(2000), nullable=True)
+
+    # Scoping: "chassis" | "engine" | "transmission"
+    scope: Mapped[str] = mapped_column(String(20), nullable=False, default="chassis")
+
+    # FK to the specific engine/transmission this chunk belongs to (non-chassis scopes)
+    engine_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("engines.id", ondelete="SET NULL"), nullable=True
+    )
+    transmission_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("transmissions.id", ondelete="SET NULL"), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

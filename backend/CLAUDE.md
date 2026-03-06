@@ -53,6 +53,8 @@ FastAPI backend for SwapSpec, an engine swap planning platform. Provides REST AP
 - **Builds** reference one **Vehicle**, one **Engine**, optionally one **Transmission**, and have many **ChatMessages**
 - **ChatMessages** store advisor conversation history per build
 - **Transmissions** match **Engines** via bellhousing patterns
+- **ManualChunk** rows store indexed text from charm.li service manuals, scoped by `scope` (`"chassis"` | `"engine"` | `"transmission"`), with optional FKs to `engine_id` / `transmission_id`
+- **Engine** + **Transmission** have `origin_year/make/model` identifying the donor vehicle whose service manual contains their documentation
 
 ### Data Provenance
 
@@ -66,13 +68,21 @@ When creating entities via API, user-provided spec fields are automatically tagg
 
 | Service | Location | Purpose |
 |---------|----------|---------|
-| `AdvisorService` | `app/services/advisor.py` | Claude AI chat with data integrity rules. Auto-persists history. Falls back to mock when `ANTHROPIC_API_KEY` unset |
+| `AdvisorService` | `app/services/advisor.py` | Claude AI chat with data integrity rules. Auto-persists history. Falls back to mock when `ANTHROPIC_API_KEY` unset. Anthropic path: tool-use loop with build-scoped `search_manual` tool. Gemini path: pre-fetch FTS. |
 | `CarQueryClient` | `app/services/carquery_client.py` | Free CarQuery API client for displacement, compression ratio, bore/stroke, HP, torque, weight |
 | `SpecLookupService` | `app/services/spec_lookup.py` | Orchestrates CarQuery + NHTSA lookups, merges results, enriches entities |
 | `PDFService` | `app/services/pdf_service.py` | WeasyPrint + Jinja2 templates. Requires system libs (`brew install cairo pango gdk-pixbuf libffi`). Returns 503 if unavailable |
 | `StorageService` | `app/services/storage.py` | Supabase Storage uploads (buckets: `uploads`, `meshes`) |
 | `VINDecoderService` | `app/services/vin_decoder.py` | NHTSA vPIC API for VIN decoding |
 | `get_supabase_client` | `app/services/supabase_client.py` | Singleton Supabase client for auth + storage (LRU cached) |
+| `CharmDownloader` | `app/services/charm_downloader.py` | Fetches charm.li year-index page, fuzzy-matches model with `difflib`, streams ZIP download |
+| `ManualExtractor` | `app/services/manual_extractor.py` | Unzips and URL-decodes all folder/file names (pure stdlib) |
+| `GapAnalyzer` | `app/services/gap_analyzer.py` | Checks 10 critical spec paths; returns `GapReport(present, missing, broken)` |
+| `GapFiller` | `app/services/gap_filler.py` | Calls Claude to generate spec HTML for missing sections; skips when `ANTHROPIC_API_KEY` unset |
+| `RAGIndexer` | `app/services/rag_indexer.py` | Walks HTML files, upserts scoped `ManualChunk` rows. Params: `scope`, `engine_id`, `transmission_id`. Includes vision helpers for image-only pages. |
+| `ManualIngestor` | `app/services/manual_ingestor.py` | Orchestrates full pipeline via `BackgroundTasks`; in-memory `_jobs` dict. Params: `scope`, `engine_id`, `transmission_id`, `vision_extract`. |
+| `VisionExtractor` | `app/services/vision_extractor.py` | Claude Haiku vision extraction for diagram pages (`VISION_CATEGORIES` list). Skips >5 MB images. No-op without `ANTHROPIC_API_KEY`. |
+| `PDFIngestor` | `app/services/pdf_ingestor.py` | `pypdf` page extraction → `ManualChunk` rows with `data_source="user_uploaded"` |
 
 ### Spec Lookup System
 
@@ -82,9 +92,26 @@ Auto-enrichment happens on entity creation: after a POST to `/api/engines` or `/
 
 The advisor system prompt includes data integrity rules that prevent fabricating specs. Each spec shown to the advisor is tagged with its source (`[MANUFACTURER]`, `[API]`, `[USER]`), and missing data is labeled `DATA NOT AVAILABLE`.
 
+### Manual Ingestion Pipeline
+
+Build creation triggers up to 3 background ingests automatically:
+1. **Chassis** — target vehicle's service manual (`scope="chassis"`)
+2. **Engine** — donor vehicle manual (`scope="engine"`, `engine_id=<id>`) — requires `engine.origin_year/make/model`
+3. **Transmission** — donor vehicle manual (`scope="transmission"`, `transmission_id=<id>`) — requires `transmission.origin_year/make/model`
+
+`seed_data.py` sets `origin_*` on all seeded engines and transmissions and backfills existing DB rows.
+
+Manual content is only downloaded on first build creation. Pre-populate via `POST /api/manuals/ingest` if needed before any builds exist.
+
+The `/api/manuals/upload` endpoint accepts PDF or ZIP files with a `scope` and component ID, enabling user-contributed spec sheets. PDFs are processed by `PDFIngestor` (pypdf); ZIPs go through the standard `ManualIngestor` pipeline.
+
+`rag_indexer.py` unique key: `(vehicle_make, vehicle_model, vehicle_year, section_path, scope, engine_id, transmission_id)` — so the same section can exist as both `scope="chassis"` and `scope="engine"` without collision.
+
 ### Testing
 
 Tests use pytest-anyio with async support. `tests/conftest.py` overrides `DATABASE_URL` to SQLite for isolation and clears the settings LRU cache. All Supabase interactions (auth, storage) are mocked via `unittest.mock.patch` on `get_supabase_client` across four modules (`supabase_client`, `auth`, `routers.auth`, `storage`). Login endpoint accepts JSON body (not OAuth2 form data).
+
+**Known issue**: All 24 tests currently fail with `AttributeError` — pre-existing regression in the mock patching for `app.utils.auth.get_supabase_client`, unrelated to the manual pipeline.
 
 ## Environment Variables
 
@@ -95,9 +122,26 @@ Required in `.env`:
 - `SUPABASE_ANON_KEY` — Supabase anon/public key
 - `ANTHROPIC_API_KEY` — Optional, enables AI advisor (falls back to mock)
 
+## Environment Variables
+
+Required in `.env`:
+- `DATABASE_URL` — Supabase PostgreSQL via pooler (`postgresql+asyncpg://postgres.PROJECT_REF:PASSWORD@aws-1-us-east-1.pooler.supabase.com:6543/postgres`)
+- `SECRET_KEY` — App-level signing key (not used for auth tokens)
+- `SUPABASE_URL` — Supabase project URL
+- `SUPABASE_ANON_KEY` — Supabase anon/public key
+- `ANTHROPIC_API_KEY` — Optional; enables AI advisor, gap-filling, and vision extraction (mock fallback without it)
+- `LOCAL_DEV` — Set `true` to bypass Supabase auth (uses `local_auth.py` with JWT + bcrypt)
+- `MANUALS_STORAGE_PATH` — Directory for downloaded/extracted manuals (default `./manuals`)
+
 ## Supabase Setup
 
 1. Create storage buckets `uploads` and `meshes` in Supabase Dashboard (set to public if you want public URLs)
 2. Tables are created via `Base.metadata.create_all` on startup (`init_db` in lifespan) or via Alembic migrations
 3. Auth is handled entirely by Supabase — no local password storage
 4. Connection uses pgBouncer pooler (port 6543) — prepared statements are disabled
+
+## Alembic Migrations
+
+Current migration chain:
+- `8e125203e866` — Add expanded spec fields and data provenance (baseline)
+- `a1b2c3d4e5f6` — Add manual scoping: `origin_year/make/model` on engines/transmissions; `scope/engine_id/transmission_id` on manual_chunks

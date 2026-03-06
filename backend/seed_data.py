@@ -23,6 +23,9 @@ async def seed_engines():
             make="Chevrolet",
             model="LS3",
             variant="6.2L",
+            origin_year=2010,
+            origin_make="Chevrolet",
+            origin_model="Camaro",
             dimensions_h=25.0,
             dimensions_w=27.0,
             dimensions_l=27.5,
@@ -75,6 +78,9 @@ async def seed_engines():
             make="Chevrolet",
             model="LS1",
             variant="5.7L",
+            origin_year=1998,
+            origin_make="Chevrolet",
+            origin_model="Camaro",
             dimensions_h=24.0,
             dimensions_w=26.5,
             dimensions_l=27.0,
@@ -127,6 +133,9 @@ async def seed_engines():
             make="Ford",
             model="Coyote",
             variant="5.0L Gen 3",
+            origin_year=2018,
+            origin_make="Ford",
+            origin_model="Mustang",
             dimensions_h=26.5,
             dimensions_w=28.0,
             dimensions_l=27.0,
@@ -179,6 +188,9 @@ async def seed_engines():
             make="Toyota",
             model="2JZ-GTE",
             variant="3.0L Twin Turbo",
+            origin_year=1993,
+            origin_make="Toyota",
+            origin_model="Supra",
             dimensions_h=27.5,
             dimensions_w=24.0,
             dimensions_l=28.0,
@@ -231,6 +243,9 @@ async def seed_engines():
             make="Nissan",
             model="RB26DETT",
             variant="2.6L Twin Turbo",
+            origin_year=1999,
+            origin_make="Nissan",
+            origin_model="Skyline",
             dimensions_h=28.0,
             dimensions_w=23.0,
             dimensions_l=29.0,
@@ -283,6 +298,9 @@ async def seed_engines():
             make="Dodge",
             model="HEMI",
             variant="6.4L 392",
+            origin_year=2012,
+            origin_make="Dodge",
+            origin_model="Challenger",
             dimensions_h=27.0,
             dimensions_w=30.0,
             dimensions_l=27.0,
@@ -341,6 +359,9 @@ async def seed_transmissions():
         Transmission(
             make="Tremec",
             model="T56 Magnum",
+            origin_year=2002,
+            origin_make="Chevrolet",
+            origin_model="Camaro",
             dimensions_h=12.0,
             dimensions_w=14.0,
             dimensions_l=26.4,
@@ -368,6 +389,9 @@ async def seed_transmissions():
         Transmission(
             make="Tremec",
             model="TKX",
+            origin_year=2019,
+            origin_make="Chevrolet",
+            origin_model="Camaro",
             dimensions_h=10.5,
             dimensions_w=12.5,
             dimensions_l=23.0,
@@ -395,6 +419,9 @@ async def seed_transmissions():
         Transmission(
             make="Tremec",
             model="T56 Magnum-F",
+            origin_year=2018,
+            origin_make="Ford",
+            origin_model="Mustang",
             dimensions_h=12.0,
             dimensions_w=14.0,
             dimensions_l=26.4,
@@ -422,6 +449,9 @@ async def seed_transmissions():
         Transmission(
             make="GM",
             model="4L60E",
+            origin_year=1999,
+            origin_make="Chevrolet",
+            origin_model="Silverado",
             dimensions_h=10.0,
             dimensions_w=14.0,
             dimensions_l=21.9,
@@ -449,6 +479,9 @@ async def seed_transmissions():
         Transmission(
             make="GM",
             model="4L80E",
+            origin_year=1998,
+            origin_make="Chevrolet",
+            origin_model="Silverado",
             dimensions_h=11.0,
             dimensions_w=16.0,
             dimensions_l=24.6,
@@ -476,6 +509,9 @@ async def seed_transmissions():
         Transmission(
             make="Toyota",
             model="R154",
+            origin_year=1993,
+            origin_make="Toyota",
+            origin_model="Supra",
             dimensions_h=11.5,
             dimensions_w=13.0,
             dimensions_l=24.0,
@@ -503,6 +539,9 @@ async def seed_transmissions():
         Transmission(
             make="Nissan",
             model="CD009",
+            origin_year=2004,
+            origin_make="Nissan",
+            origin_model="350Z",
             dimensions_h=11.0,
             dimensions_w=13.5,
             dimensions_l=25.0,
@@ -687,35 +726,49 @@ async def main():
     from sqlalchemy import select
 
     async with async_session_maker() as session:
-        # Add engines (skip duplicates by make+model+variant)
+        # Add engines (skip duplicates by make+model+variant); patch origin fields on existing
         print("Seeding engines...")
         engines = await seed_engines()
         added_engines = 0
         for engine in engines:
-            existing = await session.execute(
+            existing_result = await session.execute(
                 select(Engine).where(
                     Engine.make == engine.make,
                     Engine.model == engine.model,
                 )
             )
-            if existing.scalar_one_or_none() is None:
+            existing = existing_result.scalar_one_or_none()
+            if existing is None:
                 session.add(engine)
                 added_engines += 1
+            elif existing.origin_year is None and engine.origin_year is not None:
+                # Backfill origin fields on already-seeded engines
+                existing.origin_year = engine.origin_year
+                existing.origin_make = engine.origin_make
+                existing.origin_model = engine.origin_model
+                session.add(existing)
 
-        # Add transmissions (skip duplicates by make+model)
+        # Add transmissions (skip duplicates by make+model); patch origin fields on existing
         print("Seeding transmissions...")
         transmissions = await seed_transmissions()
         added_trans = 0
         for trans in transmissions:
-            existing = await session.execute(
+            existing_result = await session.execute(
                 select(Transmission).where(
                     Transmission.make == trans.make,
                     Transmission.model == trans.model,
                 )
             )
-            if existing.scalar_one_or_none() is None:
+            existing = existing_result.scalar_one_or_none()
+            if existing is None:
                 session.add(trans)
                 added_trans += 1
+            elif existing.origin_year is None and trans.origin_year is not None:
+                # Backfill origin fields on already-seeded transmissions
+                existing.origin_year = trans.origin_year
+                existing.origin_make = trans.origin_make
+                existing.origin_model = trans.origin_model
+                session.add(existing)
 
         # Add vehicles (skip duplicates by year+make+model+trim)
         print("Seeding vehicles...")

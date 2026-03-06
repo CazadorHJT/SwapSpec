@@ -3,12 +3,15 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import TYPE_CHECKING, Iterator, Optional
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.manual_chunk import ManualChunk
+
+if TYPE_CHECKING:
+    from app.services.vision_extractor import VisionExtractor
 
 
 class _TextExtractor(HTMLParser):
@@ -38,6 +41,45 @@ class _TextExtractor(HTMLParser):
         return re.sub(r"\s+", " ", raw).strip()
 
 
+class _ImageSrcExtractor(HTMLParser):
+    """Extracts the first <img src="..."> from an HTML file."""
+
+    def __init__(self):
+        super().__init__()
+        self.src: Optional[str] = None
+
+    def handle_starttag(self, tag: str, attrs):
+        if tag.lower() == "img" and self.src is None:
+            attrs_dict = dict(attrs)
+            if "src" in attrs_dict:
+                self.src = attrs_dict["src"]
+
+
+def _has_img_tag(html_path: Path) -> Optional[str]:
+    """Return the src of the first <img> tag in the file, or None if no img tag found."""
+    try:
+        raw = html_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+    parser = _ImageSrcExtractor()
+    try:
+        parser.feed(raw)
+    except Exception:
+        return None
+    return parser.src
+
+
+def _resolve_image_path(html_path: Path, img_src: str) -> Optional[Path]:
+    """Resolve img_src relative to the HTML file's directory."""
+    try:
+        resolved = (html_path.parent / img_src).resolve()
+        if resolved.exists():
+            return resolved
+    except Exception:
+        pass
+    return None
+
+
 class RAGIndexer:
     async def index_manual(
         self,
@@ -47,15 +89,72 @@ class RAGIndexer:
         year: int,
         vehicle_id: Optional[str],
         db: AsyncSession,
+        scope: str = "chassis",
+        engine_id: Optional[str] = None,
+        transmission_id: Optional[str] = None,
+        vision: Optional["VisionExtractor"] = None,
     ) -> int:
         """Walk HTML files, extract text, upsert chunks. Returns count of chunks written."""
+        vehicle_str = f"{year} {make} {model}"
         count = 0
+
         for html_path in self._walk_htmls(manual_dir):
             text = self._extract_text(html_path)
+            section_path = self._path_to_section(html_path, manual_dir)
+
+            # Check for image-only pages (very little text but has an <img>)
+            img_src = _has_img_tag(html_path) if len(text) < 20 else None
+
+            if len(text) < 20 and img_src and vision is not None:
+                # Try vision extraction for diagram pages
+                image_path = _resolve_image_path(html_path, img_src)
+                if image_path:
+                    from app.services.vision_extractor import is_vision_category
+                    if is_vision_category(section_path):
+                        extracted = vision.extract(image_path, section_path, vehicle_str)
+                        if extracted:
+                            await self._upsert_chunk(
+                                {
+                                    "vehicle_make": make,
+                                    "vehicle_model": model,
+                                    "vehicle_year": year,
+                                    "vehicle_id": vehicle_id,
+                                    "section_path": section_path,
+                                    "content": extracted,
+                                    "data_source": "charm_li_vision",
+                                    "confidence": "medium",
+                                    "scope": scope,
+                                    "engine_id": engine_id,
+                                    "transmission_id": transmission_id,
+                                },
+                                db,
+                            )
+                            count += 1
+                            continue
+
+                    # No vision or not a vision category — write a stub
+                    await self._upsert_chunk(
+                        {
+                            "vehicle_make": make,
+                            "vehicle_model": model,
+                            "vehicle_year": year,
+                            "vehicle_id": vehicle_id,
+                            "section_path": section_path,
+                            "content": f"[Diagram: {section_path}] — visual content only",
+                            "data_source": "charm_li_stub",
+                            "confidence": "low",
+                            "scope": scope,
+                            "engine_id": engine_id,
+                            "transmission_id": transmission_id,
+                        },
+                        db,
+                    )
+                    count += 1
+                continue
+
             if len(text) < 20:
                 continue
 
-            section_path = self._path_to_section(html_path, manual_dir)
             await self._upsert_chunk(
                 {
                     "vehicle_make": make,
@@ -66,6 +165,9 @@ class RAGIndexer:
                     "content": text,
                     "data_source": "charm_li",
                     "confidence": "high",
+                    "scope": scope,
+                    "engine_id": engine_id,
+                    "transmission_id": transmission_id,
                 },
                 db,
             )
@@ -107,17 +209,29 @@ class RAGIndexer:
         return " > ".join(parts)
 
     async def _upsert_chunk(self, chunk_data: dict, db: AsyncSession) -> None:
-        """Insert or update a ManualChunk, keyed on (make, model, year, section_path)."""
-        result = await db.execute(
-            select(ManualChunk).where(
-                and_(
-                    ManualChunk.vehicle_make == chunk_data["vehicle_make"],
-                    ManualChunk.vehicle_model == chunk_data["vehicle_model"],
-                    ManualChunk.vehicle_year == chunk_data["vehicle_year"],
-                    ManualChunk.section_path == chunk_data["section_path"],
-                )
-            )
-        )
+        """Insert or update a ManualChunk, keyed on (make, model, year, section_path, scope, engine_id, transmission_id)."""
+        scope = chunk_data.get("scope", "chassis")
+        engine_id = chunk_data.get("engine_id")
+        transmission_id = chunk_data.get("transmission_id")
+
+        filters = [
+            ManualChunk.vehicle_make == chunk_data["vehicle_make"],
+            ManualChunk.vehicle_model == chunk_data["vehicle_model"],
+            ManualChunk.vehicle_year == chunk_data["vehicle_year"],
+            ManualChunk.section_path == chunk_data["section_path"],
+            ManualChunk.scope == scope,
+        ]
+        # Scope-specific component FK filters
+        if engine_id:
+            filters.append(ManualChunk.engine_id == engine_id)
+        else:
+            filters.append(ManualChunk.engine_id.is_(None))
+        if transmission_id:
+            filters.append(ManualChunk.transmission_id == transmission_id)
+        else:
+            filters.append(ManualChunk.transmission_id.is_(None))
+
+        result = await db.execute(select(ManualChunk).where(and_(*filters)))
         existing = result.scalar_one_or_none()
 
         if existing:

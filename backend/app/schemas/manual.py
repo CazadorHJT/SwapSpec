@@ -40,3 +40,9 @@ class ManualChunkResponse(BaseModel):
 class ManualSearchResponse(BaseModel):
     chunks: list[ManualChunkResponse]
     total: int
+
+
+class ManualUploadResponse(BaseModel):
+    job_id: Optional[str]
+    status: str
+    message: str

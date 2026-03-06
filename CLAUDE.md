@@ -102,7 +102,7 @@ Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
 **Services**:
 | Service | Location | Purpose |
 |---------|----------|---------|
-| AdvisorService | `app/services/advisor.py` | Claude AI chat with data integrity rules, auto-persists history. Falls back to mock when `ANTHROPIC_API_KEY` unset. Retrieves `[CHARM_MANUAL]` context via FTS before each chat. |
+| AdvisorService | `app/services/advisor.py` | Claude AI chat with data integrity rules, auto-persists history. Falls back to mock when `ANTHROPIC_API_KEY` unset. Anthropic path uses tool-use loop with build-scoped `search_manual` tool. Gemini path uses pre-fetch FTS. |
 | CarQueryClient | `app/services/carquery_client.py` | Free CarQuery API for displacement, compression, bore/stroke, HP, torque, weight |
 | SpecLookupService | `app/services/spec_lookup.py` | Orchestrates CarQuery + NHTSA lookups, merges results. Priority: NHTSA > CarQuery > existing |
 | PDFService | `app/services/pdf_service.py` | WeasyPrint + Jinja2 templates in `app/templates/`. Requires `brew install cairo pango gdk-pixbuf libffi`. Returns 503 if unavailable |
@@ -113,8 +113,10 @@ Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
 | ManualExtractor | `app/services/manual_extractor.py` | Unzips and URL-decodes all folder/file names (pure stdlib) |
 | GapAnalyzer | `app/services/gap_analyzer.py` | Checks 10 critical spec paths in an extracted manual directory; returns `GapReport(present, missing, broken)` |
 | GapFiller | `app/services/gap_filler.py` | Calls Claude to generate spec HTML for missing sections; skips gracefully when `ANTHROPIC_API_KEY` unset |
-| RAGIndexer | `app/services/rag_indexer.py` | Walks HTML files, strips tags via stdlib `html.parser`, upserts `ManualChunk` rows |
-| ManualIngestor | `app/services/manual_ingestor.py` | Orchestrates full pipeline via FastAPI `BackgroundTasks`; tracks jobs in `_jobs` dict (in-memory) |
+| RAGIndexer | `app/services/rag_indexer.py` | Walks HTML files, upserts scoped `ManualChunk` rows. Accepts `scope`, `engine_id`, `transmission_id`. Vision helpers detect image-only pages. |
+| ManualIngestor | `app/services/manual_ingestor.py` | Orchestrates full pipeline via FastAPI `BackgroundTasks`; tracks jobs in `_jobs` dict (in-memory). Accepts `scope`, `engine_id`, `transmission_id`. |
+| VisionExtractor | `app/services/vision_extractor.py` | Uses Claude Haiku vision to extract text from diagram/schematic pages. Skips images >5 MB. Graceful no-op when `ANTHROPIC_API_KEY` unset. |
+| PDFIngestor | `app/services/pdf_ingestor.py` | Extracts page text from uploaded PDFs via `pypdf`; upserts as `ManualChunk` rows with `data_source="user_uploaded"`. |
 
 ### Web Frontend (Next.js + shadcn/ui + React Three Fiber)
 
@@ -154,15 +156,38 @@ Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
 
 `ManualChunk` rows store indexed plain text from Operation CHARM service manuals. PostgreSQL FTS (`to_tsvector` / `plainto_tsquery`) drives the search; `rag_indexer.py` falls back to `ILIKE` on SQLite so tests pass without PG.
 
-The `/api/manuals/ingest` endpoint checks for existing chunks before queuing a download. To ingest a locally extracted manual directory (skipping the download step):
+**Scoped indexing**: Every chunk has a `scope` (`"chassis"` | `"engine"` | `"transmission"`), and non-chassis chunks carry a FK to the specific `engine_id` or `transmission_id` they describe. This allows the advisor to search only the manuals relevant to the active build.
 
+**Donor vehicle origin**: `Engine` and `Transmission` rows have `origin_year`, `origin_make`, `origin_model` fields that identify which vehicle's service manual contains their documentation (e.g., LS1 → 1998 Chevrolet Camaro). These are set in `seed_data.py` and used on build creation to queue engine/transmission ingests.
+
+**Build creation triggers 3 ingests**:
+1. Chassis manual for the target vehicle (`scope="chassis"`)
+2. Engine donor vehicle manual (`scope="engine"`, `engine_id=<id>`) — only if `origin_*` fields are set
+3. Transmission donor vehicle manual (`scope="transmission"`, `transmission_id=<id>`) — only if `origin_*` fields are set
+
+**Manual content only flows in when a build is created** (or via manual API call). Existing engines/transmissions with `origin_*` set will automatically get their manuals indexed on first build use.
+
+**Ingest API endpoints**:
 ```bash
+# Trigger charm.li download + index (scope-aware already-indexed check)
+POST /api/manuals/ingest
+{"year": 1998, "make": "Chevrolet", "model": "Camaro", "vehicle_id": null}
+
+# Ingest from local directory (skip download)
 POST /api/manuals/ingest/local
 {"manual_dir": "/absolute/path/to/manual", "make": "Toyota", "model": "Supra", "year": 1993}
 
-# Poll until complete:
+# Upload a PDF or ZIP spec sheet (attached to a specific component)
+POST /api/manuals/upload   (multipart form)
+  file=<PDF|ZIP>, scope=<chassis|engine|transmission>,
+  make=..., model=..., year=...,
+  vehicle_id=..., engine_id=..., transmission_id=...
+
+# Poll job status:
 GET /api/manuals/status/{job_id}
 ```
+
+**Tool-use advisor (Anthropic path)**: Instead of pre-fetching context, Claude is given a `search_manual` tool scoped to the 3 components in the active build. Claude calls it 1–3 times per response before answering. The tool definition is built dynamically per build and lists available manuals by name.
 
 charm.li URL structure: `https://charm.li/{Make}/{Year}/` (index), `https://charm.li/bundle/{Make}/{Year}/{Model+Engine}/` (ZIP download).
 

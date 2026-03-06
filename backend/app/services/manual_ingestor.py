@@ -72,6 +72,10 @@ class ManualIngestor:
         manual_dir_override: Optional[str] = None,
         drive_type: Optional[str] = None,
         cylinders: Optional[int] = None,
+        scope: str = "chassis",
+        engine_id: Optional[str] = None,
+        transmission_id: Optional[str] = None,
+        vision_extract: bool = True,
     ) -> None:
         """Full pipeline: download → extract → analyze → fill → index.
 
@@ -124,8 +128,23 @@ class ManualIngestor:
 
             # --- Stage: indexing ---
             job.stage = "indexing"
+
+            vision = None
+            if vision_extract:
+                try:
+                    from app.services.vision_extractor import VisionExtractor
+                    vision = VisionExtractor()
+                except Exception:
+                    pass
+
             indexer = RAGIndexer()
-            count = await indexer.index_manual(manual_dir, make, model, year, vehicle_id, db)
+            count = await indexer.index_manual(
+                manual_dir, make, model, year, vehicle_id, db,
+                scope=scope,
+                engine_id=engine_id,
+                transmission_id=transmission_id,
+                vision=vision,
+            )
             job.chunks_indexed = count
 
             job.status = "complete"
