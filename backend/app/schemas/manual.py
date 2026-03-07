@@ -7,6 +7,9 @@ class ManualIngestRequest(BaseModel):
     make: str
     model: str
     vehicle_id: Optional[str] = None
+    scope: str = "chassis"
+    engine_id: Optional[str] = None
+    transmission_id: Optional[str] = None
 
 
 class LocalManualIngestRequest(BaseModel):
