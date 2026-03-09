@@ -479,7 +479,7 @@ async def seed_transmissions():
         Transmission(
             make="GM",
             model="4L80E",
-            origin_year=1998,
+            origin_year=1999,
             origin_make="Chevrolet",
             origin_model="Silverado",
             dimensions_h=11.0,

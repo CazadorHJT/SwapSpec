@@ -130,6 +130,8 @@ class RAGIndexer:
                                 db,
                             )
                             count += 1
+                            if count % 200 == 0:
+                                await db.commit()
                             continue
 
                     # No vision or not a vision category — write a stub
@@ -150,6 +152,8 @@ class RAGIndexer:
                         db,
                     )
                     count += 1
+                    if count % 200 == 0:
+                        await db.commit()
                 continue
 
             if len(text) < 20:
@@ -172,6 +176,8 @@ class RAGIndexer:
                 db,
             )
             count += 1
+            if count % 200 == 0:
+                await db.commit()
 
         await db.commit()
         return count
