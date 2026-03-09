@@ -202,16 +202,20 @@ class RAGIndexer:
         return text.replace('\x00', '')
 
     def _path_to_section(self, html_path: Path, root: Path) -> str:
-        """Convert a file's path relative to the manual root into 'A > B > C' format."""
+        """Convert a file's path relative to the manual root into 'A > B > C' format.
+
+        Includes the filename stem as the final path component so that every HTML
+        file gets a unique section_path. Without this, flat charm.li manuals (where
+        all pages share the same parent directory) would produce identical keys and
+        each page would overwrite the previous one.
+        """
         try:
             rel = html_path.relative_to(root)
         except ValueError:
             return str(html_path.stem)
 
-        parts = list(rel.parts)
-        # Drop the filename (index.html / page.html) — the parent dirs are the section
-        if len(parts) > 1:
-            parts = parts[:-1]
+        # Replace the filename with its stem (strips .html extension) and keep all parts
+        parts = list(rel.parts[:-1]) + [html_path.stem]
         return " > ".join(parts)
 
     async def _upsert_chunk(self, chunk_data: dict, db: AsyncSession) -> None:
