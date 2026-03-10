@@ -580,6 +580,11 @@ async def seed_vehicles():
             trim="SS",
             vin_pattern="124379",
             quality_status=QualityStatus.approved,
+            drive_type="RWD",
+            body_style="Coupe",
+            doors=2,
+            engine_displacement_l=5.7,
+            engine_cylinders=8,
             engine_bay_length_in=34.0,
             engine_bay_width_in=28.0,
             engine_bay_height_in=22.0,
@@ -600,6 +605,11 @@ async def seed_vehicles():
             trim="Fastback",
             vin_pattern="7F02C",
             quality_status=QualityStatus.approved,
+            drive_type="RWD",
+            body_style="Fastback",
+            doors=2,
+            engine_displacement_l=4.7,
+            engine_cylinders=8,
             engine_bay_length_in=32.0,
             engine_bay_width_in=26.0,
             engine_bay_height_in=20.0,
@@ -620,6 +630,11 @@ async def seed_vehicles():
             trim="R/T",
             vin_pattern="JH23R0B",
             quality_status=QualityStatus.approved,
+            drive_type="RWD",
+            body_style="Coupe",
+            doors=2,
+            engine_displacement_l=6.3,
+            engine_cylinders=8,
             engine_bay_length_in=36.0,
             engine_bay_width_in=30.0,
             engine_bay_height_in=24.0,
@@ -640,6 +655,11 @@ async def seed_vehicles():
             trim="NA",
             vin_pattern="JM1NA35",
             quality_status=QualityStatus.approved,
+            drive_type="RWD",
+            body_style="Convertible",
+            doors=2,
+            engine_displacement_l=1.6,
+            engine_cylinders=4,
             engine_bay_length_in=26.0,
             engine_bay_width_in=22.0,
             engine_bay_height_in=18.0,
@@ -662,6 +682,11 @@ async def seed_vehicles():
             trim="SE",
             vin_pattern="JN1MS34",
             quality_status=QualityStatus.approved,
+            drive_type="RWD",
+            body_style="Coupe",
+            doors=2,
+            engine_displacement_l=2.4,
+            engine_cylinders=4,
             engine_bay_length_in=30.0,
             engine_bay_width_in=26.0,
             engine_bay_height_in=22.0,
@@ -682,6 +707,11 @@ async def seed_vehicles():
             trim="Turbo",
             vin_pattern="JT2JA82",
             quality_status=QualityStatus.approved,
+            drive_type="RWD",
+            body_style="Coupe",
+            doors=2,
+            engine_displacement_l=3.0,
+            engine_cylinders=6,
             engine_bay_length_in=32.0,
             engine_bay_width_in=26.0,
             engine_bay_height_in=22.0,
@@ -702,6 +732,11 @@ async def seed_vehicles():
             trim="GT",
             vin_pattern="1ZVFT82H",
             quality_status=QualityStatus.approved,
+            drive_type="RWD",
+            body_style="Coupe",
+            doors=2,
+            engine_displacement_l=4.6,
+            engine_cylinders=8,
             engine_bay_length_in=35.0,
             engine_bay_width_in=28.0,
             engine_bay_height_in=22.0,
@@ -770,21 +805,29 @@ async def main():
                 existing.origin_model = trans.origin_model
                 session.add(existing)
 
-        # Add vehicles (skip duplicates by year+make+model+trim)
+        # Add vehicles (skip duplicates by year+make+model); backfill new specifics fields
         print("Seeding vehicles...")
         vehicles = await seed_vehicles()
         added_vehicles = 0
         for vehicle in vehicles:
-            existing = await session.execute(
+            existing_result = await session.execute(
                 select(Vehicle).where(
                     Vehicle.year == vehicle.year,
                     Vehicle.make == vehicle.make,
                     Vehicle.model == vehicle.model,
                 )
             )
-            if existing.scalar_one_or_none() is None:
+            existing = existing_result.scalar_one_or_none()
+            if existing is None:
                 session.add(vehicle)
                 added_vehicles += 1
+            elif existing.drive_type is None and vehicle.drive_type is not None:
+                existing.drive_type = vehicle.drive_type
+                existing.body_style = vehicle.body_style
+                existing.doors = vehicle.doors
+                existing.engine_displacement_l = vehicle.engine_displacement_l
+                existing.engine_cylinders = vehicle.engine_cylinders
+                session.add(existing)
 
         await session.commit()
         print(f"Seeded {added_engines} engines, {added_trans} transmissions, {added_vehicles} vehicles")
