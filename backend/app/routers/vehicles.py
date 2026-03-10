@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from typing import Optional
@@ -84,11 +84,23 @@ async def get_vehicle(vehicle_id: str, db: AsyncSession = Depends(get_db)):
 @router.post("", response_model=VehicleResponse, status_code=status.HTTP_201_CREATED)
 async def create_vehicle(
     vehicle_data: VehicleCreate,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Upload a new vehicle scan (requires authentication).
-    Auto-enriches with API data for any null spec fields."""
+    Auto-enriches with API data for any null spec fields.
+    If a vehicle with the same VIN already exists, returns the existing record."""
+    # Dedup by VIN — return existing vehicle rather than creating a duplicate
+    if vehicle_data.vin_pattern:
+        existing_result = await db.execute(
+            select(Vehicle).where(Vehicle.vin_pattern == vehicle_data.vin_pattern)
+        )
+        existing = existing_result.scalar_one_or_none()
+        if existing:
+            response.status_code = status.HTTP_200_OK
+            return existing
+
     # Tag user-provided spec fields
     user_fields = {
         k: v for k, v in vehicle_data.model_dump(exclude_unset=True).items()

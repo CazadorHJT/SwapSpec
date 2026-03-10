@@ -48,10 +48,16 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
   }
 
   function findDuplicate(): Vehicle | undefined {
-    if (!existingVehicles || !result?.year || !result?.make || !result?.model) return undefined;
+    if (!existingVehicles) return undefined;
+    // Check by VIN first — exact match regardless of status
+    if (vin) {
+      const byVin = existingVehicles.find((v) => v.vin_pattern === vin);
+      if (byVin) return byVin;
+    }
+    // Fall back to year/make/model — include pending so user's own vehicles are caught
+    if (!result?.year || !result?.make || !result?.model) return undefined;
     return existingVehicles.find(
       (v) =>
-        v.quality_status === "approved" &&
         v.year === result.year &&
         v.make.toLowerCase() === result.make!.toLowerCase() &&
         v.model.toLowerCase() === result.model!.toLowerCase()
@@ -175,7 +181,7 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
             {duplicate ? (
               <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 p-4 text-sm space-y-3">
                 <p>
-                  A matching approved vehicle already exists:{" "}
+                  This vehicle already exists:{" "}
                   <span className="font-medium">
                     {duplicate.year} {duplicate.make} {duplicate.model}
                     {duplicate.trim ? ` ${duplicate.trim}` : ""}
