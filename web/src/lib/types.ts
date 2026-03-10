@@ -44,6 +44,11 @@ export interface Vehicle {
   make: string;
   model: string;
   trim?: string;
+  drive_type?: string;
+  body_style?: string;
+  doors?: number;
+  engine_displacement_l?: number;
+  engine_cylinders?: number;
   vin_pattern?: string;
   bay_scan_mesh_url?: string;
   contributor_id?: string;
@@ -73,6 +78,11 @@ export interface VehicleCreate {
   make: string;
   model: string;
   trim?: string;
+  drive_type?: string;
+  body_style?: string;
+  doors?: number;
+  engine_displacement_l?: number;
+  engine_cylinders?: number;
   vin_pattern?: string;
   bay_scan_mesh_url?: string;
   modifications?: Record<string, unknown>;
@@ -104,6 +114,8 @@ export interface VINDecodeResponse {
   drive_type?: string;
   cylinders?: number;
   displacement_l?: number;
+  body_style?: string;
+  doors?: number;
   raw_data?: Record<string, unknown>;
 }
 

@@ -80,6 +80,11 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
         make: result!.make!,
         model: result!.model!,
         trim: result!.trim,
+        drive_type: result!.drive_type,
+        body_style: result!.body_style,
+        doors: result!.doors,
+        engine_displacement_l: result!.displacement_l,
+        engine_cylinders: result!.cylinders,
         vin_pattern: vin,
       });
       toast.success("Vehicle added!");
@@ -161,6 +166,16 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
             {result.drive_type && (
               <p>
                 <span className="font-medium">Drive Type:</span> {result.drive_type}
+              </p>
+            )}
+            {result.body_style && (
+              <p>
+                <span className="font-medium">Body:</span> {result.body_style.split("/")[0].trim()}
+              </p>
+            )}
+            {result.doors && (
+              <p>
+                <span className="font-medium">Doors:</span> {result.doors}
               </p>
             )}
             {result.cylinders && (

@@ -107,6 +107,8 @@ export async function getVehicles(params?: {
   year?: number;
   make?: string;
   model?: string;
+  drive_type?: string;
+  body_style?: string;
   skip?: number;
   limit?: number;
 }): Promise<VehicleList> {
@@ -114,6 +116,8 @@ export async function getVehicles(params?: {
   if (params?.year) sp.set("year", String(params.year));
   if (params?.make) sp.set("make", params.make);
   if (params?.model) sp.set("model", params.model);
+  if (params?.drive_type) sp.set("drive_type", params.drive_type);
+  if (params?.body_style) sp.set("body_style", params.body_style);
   if (params?.skip) sp.set("skip", String(params.skip));
   if (params?.limit) sp.set("limit", String(params.limit));
   const qs = sp.toString();

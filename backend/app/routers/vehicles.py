@@ -20,6 +20,8 @@ async def list_vehicles(
     year: Optional[int] = Query(None, description="Filter by model year"),
     make: Optional[str] = Query(None, description="Filter by make"),
     model: Optional[str] = Query(None, description="Filter by model"),
+    drive_type: Optional[str] = Query(None, description="Filter by drive type"),
+    body_style: Optional[str] = Query(None, description="Filter by body style"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -48,6 +50,10 @@ async def list_vehicles(
         query = query.where(Vehicle.make.ilike(f"%{make}%"))
     if model:
         query = query.where(Vehicle.model.ilike(f"%{model}%"))
+    if drive_type:
+        query = query.where(Vehicle.drive_type.ilike(f"%{drive_type}%"))
+    if body_style:
+        query = query.where(Vehicle.body_style.ilike(f"%{body_style}%"))
 
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())
@@ -105,6 +111,8 @@ async def create_vehicle(
     user_fields = {
         k: v for k, v in vehicle_data.model_dump(exclude_unset=True).items()
         if v is not None and k not in ("year", "make", "model", "trim", "vin_pattern",
+                                        "drive_type", "body_style", "doors",
+                                        "engine_displacement_l", "engine_cylinders",
                                         "bay_scan_mesh_url", "modifications",
                                         "data_sources", "data_source_notes")
     }

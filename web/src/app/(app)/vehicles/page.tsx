@@ -11,11 +11,15 @@ export default function VehiclesPage() {
   const [year, setYear] = useState("");
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
+  const [driveType, setDriveType] = useState("");
+  const [bodyStyle, setBodyStyle] = useState("");
 
   const { data, loading, refetch } = useVehicles({
     year: year ? parseInt(year) : undefined,
     make: make || undefined,
     model: model || undefined,
+    drive_type: driveType || undefined,
+    body_style: bodyStyle || undefined,
   });
 
   return (
@@ -31,9 +35,13 @@ export default function VehiclesPage() {
         year={year}
         make={make}
         model={model}
+        driveType={driveType}
+        bodyStyle={bodyStyle}
         onYearChange={setYear}
         onMakeChange={setMake}
         onModelChange={setModel}
+        onDriveTypeChange={setDriveType}
+        onBodyStyleChange={setBodyStyle}
       />
 
       {loading ? (

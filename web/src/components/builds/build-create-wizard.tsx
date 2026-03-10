@@ -47,6 +47,8 @@ export function BuildCreateWizard() {
   const [vYear, setVYear] = useState("");
   const [vMake, setVMake] = useState("");
   const [vModel, setVModel] = useState("");
+  const [vDriveType, setVDriveType] = useState("");
+  const [vBodyStyle, setVBodyStyle] = useState("");
 
   // Step 2 filters
   const [eMake, setEMake] = useState("");
@@ -56,10 +58,12 @@ export function BuildCreateWizard() {
     year: vYear ? parseInt(vYear) : undefined,
     make: vMake || undefined,
     model: vModel || undefined,
+    drive_type: vDriveType || undefined,
+    body_style: vBodyStyle || undefined,
   };
   const vehicleData = useApi(
     () => api.getVehicles(vehicleParams),
-    [vYear, vMake, vModel],
+    [vYear, vMake, vModel, vDriveType, vBodyStyle],
   );
 
   const engineParams = {
@@ -180,9 +184,13 @@ export function BuildCreateWizard() {
                 year={vYear}
                 make={vMake}
                 model={vModel}
+                driveType={vDriveType}
+                bodyStyle={vBodyStyle}
                 onYearChange={setVYear}
                 onMakeChange={setVMake}
                 onModelChange={setVModel}
+                onDriveTypeChange={setVDriveType}
+                onBodyStyleChange={setVBodyStyle}
               />
               {vehicleData.loading ? (
                 <Skeleton className="h-48 w-full" />

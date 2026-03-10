@@ -9,6 +9,11 @@ class VehicleBase(BaseModel):
     make: str
     model: str
     trim: Optional[str] = None
+    drive_type: Optional[str] = None
+    body_style: Optional[str] = None
+    doors: Optional[int] = None
+    engine_displacement_l: Optional[float] = None
+    engine_cylinders: Optional[int] = None
     vin_pattern: Optional[str] = None
     bay_scan_mesh_url: Optional[str] = None
     modifications: Optional[dict] = None
@@ -59,4 +64,6 @@ class VINDecodeResponse(BaseModel):
     drive_type: Optional[str] = None     # e.g. "4x4", "4x2", "AWD"
     cylinders: Optional[int] = None      # e.g. 4, 6, 8
     displacement_l: Optional[float] = None
+    body_style: Optional[str] = None
+    doors: Optional[int] = None
     raw_data: Optional[dict] = None

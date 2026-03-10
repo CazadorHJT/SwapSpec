@@ -39,6 +39,12 @@ class VINDecoderService:
                         displacement = round(float(displacement), 1)
                     except (ValueError, TypeError):
                         displacement = None
+                doors = parsed.get("doors")
+                if doors:
+                    try:
+                        doors = int(doors)
+                    except (ValueError, TypeError):
+                        doors = None
                 return VINDecodeResponse(
                     year=parsed.get("year"),
                     make=parsed.get("make"),
@@ -48,6 +54,8 @@ class VINDecoderService:
                     drive_type=parsed.get("drive_type"),
                     cylinders=cylinders,
                     displacement_l=displacement,
+                    body_style=parsed.get("body_style"),
+                    doors=doors,
                     raw_data=data,
                 )
         except httpx.HTTPError as e:
@@ -67,6 +75,8 @@ class VINDecoderService:
             "Displacement (L)": "displacement_l",
             "Drive Type": "drive_type",
             "Engine Number of Cylinders": "cylinders",
+            "Body Class":                  "body_style",
+            "Doors":                       "doors",
         }
 
         for item in results:
