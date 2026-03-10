@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, Car, Cog } from "lucide-react";
+import { Calendar, Cog, Gauge } from "lucide-react";
 import type { Build } from "@/lib/types";
 import { useApi } from "@/hooks/use-api";
 import * as api from "@/lib/api-client";
@@ -17,6 +17,10 @@ export function BuildCard({ build }: { build: Build }) {
   const date = new Date(build.created_at).toLocaleDateString();
   const { data: vehicle } = useApi(() => api.getVehicle(build.vehicle_id), [build.vehicle_id]);
   const { data: engine } = useApi(() => api.getEngine(build.engine_id), [build.engine_id]);
+  const { data: transmission } = useApi(
+    () => build.transmission_id ? api.getTransmission(build.transmission_id) : Promise.resolve(null),
+    [build.transmission_id],
+  );
 
   const title = vehicle
     ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
@@ -44,10 +48,10 @@ export function BuildCard({ build }: { build: Build }) {
               </span>
             </div>
           )}
-          {vehicle && (
+          {transmission && (
             <div className="flex items-center gap-2">
-              <Car className="h-4 w-4 shrink-0" />
-              <span className="truncate">{vehicle.trim ?? vehicle.model}</span>
+              <Gauge className="h-4 w-4 shrink-0" />
+              <span className="truncate">{transmission.make} {transmission.model}</span>
             </div>
           )}
           <div className="flex items-center gap-2">
