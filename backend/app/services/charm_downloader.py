@@ -10,6 +10,29 @@ import httpx
 class CharmDownloader:
     BASE = "https://charm.li"
 
+    # Charm.li uses non-standard make names for some manufacturers.
+    # Keys are lowercase normalized; values are the exact charm.li URL segment.
+    MAKE_ALIASES: dict[str, str] = {
+        "nissan":        "Nissan-Datsun",
+        "nissan-datsun": "Nissan-Datsun",
+        "dodge":         "Dodge and Ram",
+        "ram":           "Dodge and Ram",
+        "land rover":    "Land Rover",
+        "mercedes-benz": "Mercedes Benz",
+        "mercedes benz": "Mercedes Benz",
+    }
+
+    def _normalize_make(self, make: str) -> str:
+        """Convert a make name to the form charm.li uses in its URLs.
+
+        NHTSA returns makes in ALL CAPS (e.g. "JEEP", "TOYOTA", "NISSAN").
+        Charm.li URLs use title case and non-standard names for some makes.
+        """
+        # Title-case if the input is all-uppercase (NHTSA output)
+        normalized = make.title() if make == make.upper() else make
+        # Apply alias map (e.g. Nissan → Nissan-Datsun)
+        return self.MAKE_ALIASES.get(normalized.lower(), normalized)
+
     async def find_and_download(
         self,
         year: int,
@@ -20,7 +43,8 @@ class CharmDownloader:
         cylinders: Optional[int] = None,
     ) -> Optional[Path]:
         """Find the best-matching vehicle variant and download its ZIP. Returns zip path or None."""
-        variants = await self._fetch_year_index(make, year)
+        make_url = self._normalize_make(make)
+        variants = await self._fetch_year_index(make_url, year)
         if not variants:
             return None
 
@@ -29,7 +53,7 @@ class CharmDownloader:
             return None
 
         await asyncio.sleep(1)
-        return await self._download_zip(make, year, best, dest_dir)
+        return await self._download_zip(make_url, year, best, dest_dir)
 
     async def _fetch_year_index(self, make: str, year: int) -> list[str]:
         """Fetch the year index page and return the list of vehicle variant names."""
