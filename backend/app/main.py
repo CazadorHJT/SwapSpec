@@ -44,7 +44,9 @@ app.add_middleware(
         "http://localhost:3001",
         "http://localhost:19006",  # Expo web
         "https://swapspec.vercel.app",
+        "https://swap-spec-r53r.vercel.app",
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
