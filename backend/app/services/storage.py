@@ -31,6 +31,15 @@ class StorageService:
         res = self.supabase.storage.from_(bucket).get_public_url(path)
         return res
 
+    async def upload_bytes(
+        self, path: str, data: bytes, content_type: str, bucket: str = "uploads"
+    ) -> str:
+        """Upload raw bytes to Supabase Storage. Returns public URL."""
+        self.supabase.storage.from_(bucket).upload(
+            path, data, {"content-type": content_type, "upsert": "true"}
+        )
+        return self.supabase.storage.from_(bucket).get_public_url(path)
+
     def file_exists(self, path: str, bucket: str = "uploads") -> bool:
         """Check if file exists in Supabase Storage."""
         try:

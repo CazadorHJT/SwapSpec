@@ -23,6 +23,7 @@ SOURCE_LABELS = {
 CHUNK_SOURCE_LABELS = {
     "charm_li": "CHARM_MANUAL",
     "charm_li_vision": "CHARM_MANUAL - DIAGRAM EXTRACTED",
+    "charm_li_image": "CHARM_MANUAL - DIAGRAM (call fetch_diagram with image_url to view)",
     "charm_li_stub": "CHARM_MANUAL - DIAGRAM EXISTS (visual only)",
     "gap_filled_ai": "CHARM_MANUAL - AI FILLED",
     "user_uploaded": "USER_UPLOADED_MANUAL",
@@ -127,7 +128,8 @@ class AdvisorService:
         message: str,
         conversation_history: Optional[list[ChatMessage]],
     ) -> tuple[str, list[str]]:
-        tool = self._build_search_tool(build, engine, vehicle, transmission)
+        search_tool = await self._build_search_tool(build, engine, vehicle, transmission, db)
+        fetch_diagram_tool = self._build_fetch_diagram_tool()
         system_prompt = self._build_system_prompt(build, engine, vehicle, transmission)
 
         messages = []
@@ -142,7 +144,7 @@ class AdvisorService:
                 model="claude-sonnet-4-20250514",
                 max_tokens=1024,
                 system=system_prompt,
-                tools=[tool],
+                tools=[search_tool, fetch_diagram_tool],
                 messages=messages,
             )
 
@@ -157,15 +159,22 @@ class AdvisorService:
                 tool_results = []
                 for block in response.content:
                     if block.type == "tool_use":
-                        result = await self._execute_search_tool(
-                            block.input.get("query", ""),
-                            block.input.get("component", "any"),
-                            build, db,
-                        )
+                        if block.name == "fetch_diagram":
+                            content = await self._execute_fetch_diagram(
+                                block.input.get("image_url", ""),
+                                block.input.get("question", ""),
+                            )
+                        else:
+                            text_result = await self._execute_search_tool(
+                                block.input.get("query", ""),
+                                block.input.get("component", "any"),
+                                build, db,
+                            )
+                            content = text_result
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,
-                            "content": result,
+                            "content": content,
                         })
                 messages.append({"role": "user", "content": tool_results})
             else:
@@ -183,14 +192,42 @@ class AdvisorService:
             pass
         return "I had trouble generating a response. Please try again.", []
 
-    def _build_search_tool(
+    async def _get_chunk_counts(self, build: Build, db: AsyncSession) -> dict[str, int]:
+        """Return {scope: chunk_count} for each component in this build."""
+        from sqlalchemy import func as sqla_func
+
+        counts: dict[str, int] = {"chassis": 0, "engine": 0, "transmission": 0}
+        try:
+            for scope, extra_filter in [
+                ("chassis", ManualChunk.vehicle_id == build.vehicle_id),
+                ("engine", ManualChunk.engine_id == build.engine_id),
+                ("transmission", ManualChunk.transmission_id == build.transmission_id),
+            ]:
+                result = await db.execute(
+                    select(sqla_func.count(ManualChunk.id)).where(
+                        and_(ManualChunk.scope == scope, extra_filter)
+                    )
+                )
+                counts[scope] = result.scalar() or 0
+        except Exception:
+            pass
+        return counts
+
+    async def _build_search_tool(
         self,
         build: Build,
         engine: Optional[Engine],
         vehicle: Optional[Vehicle],
         transmission: Optional[Transmission],
+        db: AsyncSession,
     ) -> dict:
-        """Build the search_manual tool definition scoped to this build's components."""
+        """Build the search_manual tool definition scoped to this build's components.
+
+        Includes indexed chunk counts per scope so Claude knows which manuals are
+        available (0 chunks = manual not yet indexed, skip or inform user).
+        """
+        chunk_counts = await self._get_chunk_counts(build, db)
+
         chassis_label = f"{vehicle.year} {vehicle.make} {vehicle.model}" if vehicle else "chassis"
         engine_label = f"{engine.make} {engine.model}" if engine else None
         trans_label = f"{transmission.make} {transmission.model}" if transmission else None
@@ -202,11 +239,15 @@ class AdvisorService:
             component_enum.append("transmission")
         component_enum.append("any")
 
-        description_parts = [f"- chassis: {chassis_label} service manual"]
+        def _count_note(scope: str) -> str:
+            n = chunk_counts.get(scope, 0)
+            return f"({n:,} chunks)" if n > 0 else "(0 chunks — manual not yet indexed)"
+
+        description_parts = [f"- chassis: {chassis_label} service manual {_count_note('chassis')}"]
         if engine_label:
-            description_parts.append(f"- engine: {engine_label} factory manual")
+            description_parts.append(f"- engine: {engine_label} factory manual {_count_note('engine')}")
         if trans_label:
-            description_parts.append(f"- transmission: {trans_label} factory manual")
+            description_parts.append(f"- transmission: {trans_label} factory manual {_count_note('transmission')}")
 
         return {
             "name": "search_manual",
@@ -239,6 +280,114 @@ class AdvisorService:
             },
         }
 
+    def _build_fetch_diagram_tool(self) -> dict:
+        return {
+            "name": "fetch_diagram",
+            "description": (
+                "Fetch and visually analyze a technical diagram from the service manual. "
+                "Use this when search_manual returns a [DIAGRAM] chunk with an image_url. "
+                "Returns a detailed description of what the diagram shows."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "image_url": {
+                        "type": "string",
+                        "description": "The Supabase Storage URL from the chunk",
+                    },
+                    "question": {
+                        "type": "string",
+                        "description": "What to look for in the diagram",
+                    },
+                },
+                "required": ["image_url", "question"],
+            },
+        }
+
+    async def _execute_fetch_diagram(self, image_url: str, question: str) -> str:
+        """Fetch image from Supabase Storage (SSRF-safe) and vision-analyze it.
+
+        Returns a plain-text description suitable as a tool_result content string.
+
+        SSRF protection layers:
+          1. Scheme must be https
+          2. Hostname must exactly match the configured Supabase Storage host
+          3. Resolved IP must not be in RFC-1918 / link-local / loopback ranges
+        """
+        import ipaddress
+        import socket
+        from urllib.parse import urlparse
+
+        parsed = urlparse(image_url)
+
+        # Layer 1: HTTPS only
+        if parsed.scheme != "https":
+            return "Image URL must use HTTPS — rejected."
+
+        # Layer 2: Hostname must match our Supabase host
+        supabase_host = urlparse(settings.supabase_url).hostname
+        if not supabase_host or parsed.hostname != supabase_host:
+            return "Image URL is not from the allowed Supabase Storage host — rejected."
+
+        # Layer 3: Resolved IP must not be private / link-local / loopback
+        try:
+            resolved_ip = socket.gethostbyname(parsed.hostname)
+            ip = ipaddress.ip_address(resolved_ip)
+            if ip.is_private or ip.is_link_local or ip.is_loopback or ip.is_reserved:
+                return "Image URL resolves to a private/reserved IP address — rejected."
+        except Exception:
+            return "Could not resolve image URL hostname — rejected."
+
+        try:
+            import base64
+            import httpx
+
+            async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
+                resp = await client.get(image_url)
+                resp.raise_for_status()
+                data = resp.content
+
+            if len(data) > 5 * 1024 * 1024:
+                return "Image too large to analyze (max 5 MB)."
+
+            b64 = base64.standard_b64encode(data).decode("ascii")
+            # Use a separate vision call (Haiku for cost efficiency)
+            import anthropic as _anthropic
+            vision_client = _anthropic.Anthropic(api_key=settings.anthropic_api_key)
+            vision_response = vision_client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=512,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/png",
+                                    "data": b64,
+                                },
+                            },
+                            {
+                                "type": "text",
+                                "text": (
+                                    f"This is a page from a vehicle service manual. "
+                                    f"Describe what this diagram shows in technical detail. "
+                                    f"Question: {question}"
+                                ),
+                            },
+                        ],
+                    }
+                ],
+            )
+            return next(
+                (b.text for b in vision_response.content if hasattr(b, "text")),
+                "Could not extract description from diagram.",
+            )
+        except Exception as e:
+            return f"Could not fetch or analyze diagram: {e}"
+
     async def _execute_search_tool(
         self,
         query: str,
@@ -247,7 +396,8 @@ class AdvisorService:
         db: AsyncSession,
     ) -> str:
         """Execute a search_manual tool call and return formatted results."""
-        # Build scope filter based on component requested
+        from app.services.manual_search import search_chunks
+
         if component == "chassis":
             scope_filter = and_(
                 ManualChunk.scope == "chassis",
@@ -265,53 +415,12 @@ class AdvisorService:
             )
         else:  # "any"
             scope_filter = or_(
-                and_(
-                    ManualChunk.scope == "chassis",
-                    ManualChunk.vehicle_id == build.vehicle_id,
-                ),
-                and_(
-                    ManualChunk.scope == "engine",
-                    ManualChunk.engine_id == build.engine_id,
-                ),
-                and_(
-                    ManualChunk.scope == "transmission",
-                    ManualChunk.transmission_id == build.transmission_id,
-                ),
+                and_(ManualChunk.scope == "chassis", ManualChunk.vehicle_id == build.vehicle_id),
+                and_(ManualChunk.scope == "engine", ManualChunk.engine_id == build.engine_id),
+                and_(ManualChunk.scope == "transmission", ManualChunk.transmission_id == build.transmission_id),
             )
 
-        try:
-            stmt = (
-                select(ManualChunk)
-                .where(
-                    and_(
-                        scope_filter,
-                        func.to_tsvector("english", ManualChunk.content).op("@@")(
-                            func.plainto_tsquery("english", query)
-                        ),
-                    )
-                )
-                .order_by(
-                    func.ts_rank(
-                        func.to_tsvector("english", ManualChunk.content),
-                        func.plainto_tsquery("english", query),
-                    ).desc()
-                )
-                .limit(5)
-            )
-            result = await db.execute(stmt)
-            chunks = result.scalars().all()
-        except Exception:
-            # ILIKE fallback for SQLite / FTS failure
-            try:
-                stmt = (
-                    select(ManualChunk)
-                    .where(and_(scope_filter, ManualChunk.content.ilike(f"%{query}%")))
-                    .limit(5)
-                )
-                result = await db.execute(stmt)
-                chunks = result.scalars().all()
-            except Exception:
-                return f"Search failed for: {query}"
+        chunks = await search_chunks(db, query, scope_filter, limit=5)
 
         if not chunks:
             return f"No results found in {component} manual for: {query}"
@@ -320,6 +429,8 @@ class AdvisorService:
         for chunk in chunks:
             label = CHUNK_SOURCE_LABELS.get(chunk.data_source, "MANUAL")
             lines.append(f"[{label}] {chunk.section_path}")
+            if chunk.source_url:
+                lines.append(f"  image_url: {chunk.source_url}")
             lines.append(chunk.content[:600])
             lines.append("")
         return "\n".join(lines).strip()
@@ -635,49 +746,16 @@ Guidelines:
         year: int,
         user_question: str,
     ) -> str:
-        """Fallback pre-fetch RAG used by Gemini path. Full-text search manual_chunks."""
-        try:
-            stmt = (
-                select(ManualChunk)
-                .where(
-                    and_(
-                        func.lower(ManualChunk.vehicle_make) == make.lower(),
-                        func.lower(ManualChunk.vehicle_model) == model.lower(),
-                        ManualChunk.vehicle_year == year,
-                        func.to_tsvector("english", ManualChunk.content).op("@@")(
-                            func.plainto_tsquery("english", user_question)
-                        ),
-                    )
-                )
-                .order_by(
-                    func.ts_rank(
-                        func.to_tsvector("english", ManualChunk.content),
-                        func.plainto_tsquery("english", user_question),
-                    ).desc()
-                )
-                .limit(5)
-            )
-            result = await db.execute(stmt)
-            chunks = result.scalars().all()
-        except Exception:
-            try:
-                keywords = " ".join(user_question.split()[:5])
-                stmt = (
-                    select(ManualChunk)
-                    .where(
-                        and_(
-                            ManualChunk.vehicle_make.ilike(make),
-                            ManualChunk.vehicle_model.ilike(model),
-                            ManualChunk.vehicle_year == year,
-                            ManualChunk.content.ilike(f"%{keywords}%"),
-                        )
-                    )
-                    .limit(5)
-                )
-                result = await db.execute(stmt)
-                chunks = result.scalars().all()
-            except Exception:
-                return ""
+        """Pre-fetch RAG used by Gemini path. Uses the shared FTS search helper."""
+        from app.services.manual_search import search_chunks
+        from sqlalchemy import func as sqla_func
+
+        scope_filter = and_(
+            sqla_func.lower(ManualChunk.vehicle_make) == make.lower(),
+            sqla_func.lower(ManualChunk.vehicle_model) == model.lower(),
+            ManualChunk.vehicle_year == year,
+        )
+        chunks = await search_chunks(db, user_question, scope_filter, limit=5)
 
         if not chunks:
             return ""

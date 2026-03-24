@@ -59,8 +59,6 @@ async def client():
     mock_supabase = _make_mock_supabase()
 
     with patch("app.services.supabase_client.get_supabase_client", return_value=mock_supabase), \
-         patch("app.utils.auth.get_supabase_client", return_value=mock_supabase), \
-         patch("app.routers.auth.get_supabase_client", return_value=mock_supabase), \
          patch("app.services.storage.get_supabase_client", return_value=mock_supabase):
 
         async with engine.begin() as conn:

@@ -36,10 +36,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware for Unity/mobile app
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:19006",  # Expo web
+        "https://swapspec.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

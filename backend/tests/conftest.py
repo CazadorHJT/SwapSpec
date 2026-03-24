@@ -10,6 +10,10 @@ os.environ["SUPABASE_ANON_KEY"] = "fake-key"
 from app.config import get_settings
 get_settings.cache_clear()
 
+# Clear the Supabase client LRU cache so tests always get the mocked client
+from app.services.supabase_client import get_supabase_client
+get_supabase_client.cache_clear()
+
 import pytest
 
 

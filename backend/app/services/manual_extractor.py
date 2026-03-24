@@ -8,11 +8,24 @@ class ManualExtractor:
     def extract_and_clean(self, zip_path: Path, dest_dir: Path) -> Path:
         """Extract ZIP to dest_dir and rename all entries with URL-decoded names.
 
+        Validates all members before extraction to block path traversal and symlinks.
         Returns the root extraction directory.
         """
         dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_resolved = dest_dir.resolve()
 
         with zipfile.ZipFile(zip_path, "r") as zf:
+            # Validate every member before extracting anything
+            for info in zf.infolist():
+                # Block symlinks (Unix symlink mode = 0xA1ED)
+                unix_mode = (info.external_attr >> 16) & 0xFFFF
+                if unix_mode == 0xA1ED:
+                    raise ValueError(f"ZIP contains symlink — rejected: {info.filename}")
+                # Block path traversal
+                member_path = (dest_dir / info.filename).resolve()
+                if not str(member_path).startswith(str(dest_resolved) + os.sep) and \
+                        str(member_path) != str(dest_resolved):
+                    raise ValueError(f"ZIP path traversal detected: {info.filename}")
             zf.extractall(dest_dir)
 
         # Walk bottom-up so we rename children before parents

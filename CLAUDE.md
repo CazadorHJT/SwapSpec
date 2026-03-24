@@ -2,9 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## gstack Skills
+
+gstack is installed globally. Use these slash commands to govern development:
+
+| Command            | When to use                                                           |
+| ------------------ | --------------------------------------------------------------------- |
+| `/plan-eng-review` | Before starting any feature — validates the plan is technically sound |
+| `/plan-ceo-review` | Before starting anything user-facing — validates it's worth building  |
+| `/review`          | After finishing a feature — code review pass                          |
+| `/qa`              | Before any PR or deploy — full QA sweep                               |
+| `/ship`            | When ready to release — final checklist + deploy                      |
+| `/retro`           | After incidents or completed milestones                               |
+| `/design-review`   | Before finalizing any UI changes                                      |
+
+**Workflow**: Plan → `/plan-eng-review` → Build → `/review` → `/qa` → `/ship`
+
 ## Project Overview
 
 SwapSpec is an AI-driven engine swap planning platform. The repo has three components:
+
 - **`backend/`** — Python FastAPI REST API
 - **`web/`** — Next.js TypeScript frontend (App Router)
 - **`mobile/`** — React Native / Expo mobile app (iOS + Android)
@@ -90,6 +107,7 @@ Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
 **Router organization**: Each domain has a router in `app/routers/`, prefixed `/api/`. New routers must be exported via `app/routers/__init__.py` and registered in `app/main.py`.
 
 **Data model relationships**:
+
 - Users own Builds and contribute Vehicles
 - Builds reference one Vehicle + one Engine + optional Transmission, and have many ChatMessages
 - Transmissions match Engines via bellhousing pattern strings
@@ -113,8 +131,9 @@ Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
 | ManualExtractor | `app/services/manual_extractor.py` | Unzips and URL-decodes all folder/file names (pure stdlib) |
 | GapAnalyzer | `app/services/gap_analyzer.py` | Checks 10 critical spec paths in an extracted manual directory; returns `GapReport(present, missing, broken)` |
 | GapFiller | `app/services/gap_filler.py` | Calls Claude to generate spec HTML for missing sections; skips gracefully when `ANTHROPIC_API_KEY` unset |
-| RAGIndexer | `app/services/rag_indexer.py` | Walks HTML files, upserts scoped `ManualChunk` rows. Accepts `scope`, `engine_id`, `transmission_id`. Vision helpers detect image-only pages. |
-| ManualIngestor | `app/services/manual_ingestor.py` | Orchestrates full pipeline via FastAPI `BackgroundTasks`; tracks jobs in `_jobs` dict (in-memory). Accepts `scope`, `engine_id`, `transmission_id`. |
+| RAGIndexer | `app/services/rag_indexer.py` | Walks HTML files, upserts scoped `ManualChunk` rows. Source precedence via `source_priority` column (user_uploaded=5 > charm_li_vision=4 > charm_li_image=3 > charm_li=2 > gap_filled_ai=1). Image-only pages routed to vision/storage/stub paths. |
+| ManualIngestor | `app/services/manual_ingestor.py` | Orchestrates full pipeline via FastAPI `BackgroundTasks`. Job state persisted in `ingest_jobs` PostgreSQL table (not in-memory). Takes `session_factory` callable — background tasks open their own DB sessions. |
+| ManualSearch | `app/services/manual_search.py` | Shared FTS helper used by advisor and manuals router. PostgreSQL `to_tsvector` + `plainto_tsquery`; falls back to ILIKE on SQLite for tests. |
 | VisionExtractor | `app/services/vision_extractor.py` | Uses Claude Haiku vision to extract text from diagram/schematic pages. Skips images >5 MB. Graceful no-op when `ANTHROPIC_API_KEY` unset. |
 | PDFIngestor | `app/services/pdf_ingestor.py` | Extracts page text from uploaded PDFs via `pypdf`; upserts as `ManualChunk` rows with `data_source="user_uploaded"`. |
 
@@ -141,6 +160,7 @@ Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
 **Shared code with web**: `mobile/lib/types.ts` is a direct copy of `web/src/lib/types.ts`. `mobile/lib/api-client.ts` and `mobile/hooks/` are direct ports — same logic, same patterns, different storage mechanism (`SecureStore` vs `localStorage`).
 
 **Route structure** mirrors the web app's route groups:
+
 - `app/(auth)/` — login, register (public)
 - `app/(app)/` — tab navigator (auth-guarded in layout), contains dashboard, builds, vehicles, engines, transmissions
 - `app/(app)/builds/[buildId]/` — build detail with Overview and Advisor tabs
@@ -161,13 +181,19 @@ Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
 **Donor vehicle origin**: `Engine` and `Transmission` rows have `origin_year`, `origin_make`, `origin_model` fields that identify which vehicle's service manual contains their documentation (e.g., LS1 → 1998 Chevrolet Camaro). These are set in `seed_data.py` and used on build creation to queue engine/transmission ingests.
 
 **Build creation triggers 3 ingests**:
+
 1. Chassis manual for the target vehicle (`scope="chassis"`)
 2. Engine donor vehicle manual (`scope="engine"`, `engine_id=<id>`) — only if `origin_*` fields are set
 3. Transmission donor vehicle manual (`scope="transmission"`, `transmission_id=<id>`) — only if `origin_*` fields are set
 
 **Manual content only flows in when a build is created** (or via manual API call). Existing engines/transmissions with `origin_*` set will automatically get their manuals indexed on first build use.
 
+**Job persistence**: `IngestJob` is a PostgreSQL model (`app/models/ingest_job.py`) — not an in-memory dict. This makes status polling correct across multiple Uvicorn workers. Background tasks receive `async_session_maker` (not a live session) and open their own connections.
+
+**Source precedence**: `ManualChunk.source_priority` (integer) encodes which source wins on upsert conflict. `INSERT ... ON CONFLICT DO UPDATE WHERE EXCLUDED.source_priority >= manual_chunks.source_priority` is atomic — no race window. SQLite fallback (tests) uses SELECT + conditional write.
+
 **Ingest API endpoints**:
+
 ```bash
 # Trigger charm.li download + index (scope-aware already-indexed check)
 POST /api/manuals/ingest
@@ -177,31 +203,55 @@ POST /api/manuals/ingest
 POST /api/manuals/ingest/local
 {"manual_dir": "/absolute/path/to/manual", "make": "Toyota", "model": "Supra", "year": 1993}
 
-# Upload a PDF or ZIP spec sheet (attached to a specific component)
+# Upload a PDF, ZIP, or image spec sheet (attached to a specific component)
 POST /api/manuals/upload   (multipart form)
-  file=<PDF|ZIP>, scope=<chassis|engine|transmission>,
+  file=<PDF|ZIP|PNG|JPG>, scope=<chassis|engine|transmission>,
   make=..., model=..., year=...,
   vehicle_id=..., engine_id=..., transmission_id=...
 
-# Poll job status:
+# Poll job status (JSON):
 GET /api/manuals/status/{job_id}
+
+# Stream job status (Server-Sent Events — closes on complete/failed):
+GET /api/manuals/status/{job_id}/stream
+
+# Full-text search with optional scope filtering:
+GET /api/manuals/search?q=...&make=...&model=...&year=...&scope=...&engine_id=...
 ```
 
-**Tool-use advisor (Anthropic path)**: Instead of pre-fetching context, Claude is given a `search_manual` tool scoped to the 3 components in the active build. Claude calls it 1–3 times per response before answering. The tool definition is built dynamically per build and lists available manuals by name.
+**Tool-use advisor (Anthropic path)**: Claude is given two tools per conversation turn:
+
+- `search_manual` — scoped to the 3 build components; tool description shows `(N,NNN chunks)` or `(0 chunks — not yet indexed)` per scope. `_build_search_tool()` is async (runs 3 COUNT queries).
+- `fetch_diagram` — fetches a Supabase Storage image URL and sends it to Claude Haiku for visual analysis. SSRF-hardened: requires HTTPS, hostname must match configured Supabase host, resolved IP must not be private/link-local/loopback.
+
+**builds.py background tasks**: All three `run_pipeline` calls in `create_build` pass `async_session_maker` (not the request-scoped `db`). The request session closes when the handler returns; background tasks need their own connections.
 
 charm.li URL structure: `https://charm.li/{Make}/{Year}/` (index), `https://charm.li/bundle/{Make}/{Year}/{Model+Engine}/` (ZIP download).
 
 ### Testing
 
-Backend tests use pytest-anyio for async support. `tests/conftest.py` overrides `DATABASE_URL` to SQLite (`aiosqlite`) and mocks the Supabase client via `unittest.mock.patch` across four modules (`supabase_client`, `auth`, `routers.auth`, `storage`). Login in tests sends JSON (not form data).
+Backend tests use pytest-anyio for async support. **49 tests pass** (24 API + 25 RAG).
 
-**Known issue**: The test fixture patches `app.utils.auth.get_supabase_client`, but that module imports it lazily inside `_resolve_user_id`. All 24 tests currently fail with `AttributeError` — this is a pre-existing regression unrelated to the manual pipeline.
+`tests/conftest.py` overrides `DATABASE_URL` to SQLite (`aiosqlite`), clears `get_settings` and `get_supabase_client` LRU caches, and mocks the Supabase client via `patch("app.services.supabase_client.get_supabase_client", ...)`. Login in tests sends JSON (not form data).
+
+**Patching rule**: `get_supabase_client` is lazily imported inside functions in `auth.py` and `routers/auth.py` — patch only `app.services.supabase_client.get_supabase_client` (the definition site). Patching `app.utils.auth.get_supabase_client` raises `AttributeError`.
+
+`tests/test_rag.py` covers the agentic RAG pipeline specifically:
+
+- `_parse_breadcrumb_path` — semantic path extraction from charm.li breadcrumbs
+- `_walk_htmls` — symlink rejection
+- `_upsert_chunk` — source priority precedence (insert / overwrite / skip)
+- `_handle_image_page` — vision / storage-upload / stub routing
+- `_execute_fetch_diagram` — all SSRF rejection layers
+- `search_chunks` — ILIKE fallback + scope filtering on SQLite
+- `run_pipeline` — regression guard for `vision=` parameter bug
 
 The web and mobile frontends have no test suites. Run `npm run build` (web) to verify TypeScript correctness.
 
 ## Environment Variables
 
 **Backend** (`backend/.env`):
+
 - `DATABASE_URL` — Supabase PostgreSQL via pooler (`postgresql+asyncpg://postgres.PROJECT_REF:PASSWORD@aws-1-us-east-1.pooler.supabase.com:6543/postgres`)
 - `SECRET_KEY` — App-level signing key
 - `SUPABASE_URL` — Supabase project URL
@@ -211,7 +261,9 @@ The web and mobile frontends have no test suites. Run `npm run build` (web) to v
 - `MANUALS_STORAGE_PATH` — Directory for downloaded/extracted manuals (default `./manuals`)
 
 **Web** (`web/.env.local`):
+
 - `NEXT_PUBLIC_API_URL` — Backend URL (default `http://localhost:8000`)
 
 **Mobile** (`mobile/.env.local`):
+
 - `EXPO_PUBLIC_API_URL` — Backend URL. Use your Mac's LAN IP for physical devices (default `http://localhost:8000`)

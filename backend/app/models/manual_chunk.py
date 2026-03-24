@@ -51,4 +51,9 @@ class ManualChunk(Base):
         String(36), ForeignKey("transmissions.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Source precedence rank (mirrors SOURCE_RANK in rag_indexer.py).
+    # Used by INSERT ... ON CONFLICT DO UPDATE to avoid overwriting higher-quality content.
+    # user_uploaded=5, charm_li_vision=4, charm_li_image=3, charm_li/stub=2, gap_filled_ai=1
+    source_priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

@@ -59,6 +59,7 @@ FastAPI backend for SwapSpec, an engine swap planning platform. Provides REST AP
 ### Data Provenance
 
 Engine, Vehicle, and Transmission models each have two tracking fields:
+
 - `data_sources` (JSON) — maps field name to source type: `"manufacturer"`, `"carquery_api"`, `"nhtsa_api"`, or `"user_contributed"`
 - `data_source_notes` (Text) — free-text citations
 
@@ -66,23 +67,24 @@ When creating entities via API, user-provided spec fields are automatically tagg
 
 ### Services
 
-| Service | Location | Purpose |
-|---------|----------|---------|
-| `AdvisorService` | `app/services/advisor.py` | Claude AI chat with data integrity rules. Auto-persists history. Falls back to mock when `ANTHROPIC_API_KEY` unset. Anthropic path: tool-use loop with build-scoped `search_manual` tool. Gemini path: pre-fetch FTS. |
-| `CarQueryClient` | `app/services/carquery_client.py` | Free CarQuery API client for displacement, compression ratio, bore/stroke, HP, torque, weight |
-| `SpecLookupService` | `app/services/spec_lookup.py` | Orchestrates CarQuery + NHTSA lookups, merges results, enriches entities |
-| `PDFService` | `app/services/pdf_service.py` | WeasyPrint + Jinja2 templates. Requires system libs (`brew install cairo pango gdk-pixbuf libffi`). Returns 503 if unavailable |
-| `StorageService` | `app/services/storage.py` | Supabase Storage uploads (buckets: `uploads`, `meshes`) |
-| `VINDecoderService` | `app/services/vin_decoder.py` | NHTSA vPIC API for VIN decoding |
-| `get_supabase_client` | `app/services/supabase_client.py` | Singleton Supabase client for auth + storage (LRU cached) |
-| `CharmDownloader` | `app/services/charm_downloader.py` | Fetches charm.li year-index page, fuzzy-matches model with `difflib`, streams ZIP download |
-| `ManualExtractor` | `app/services/manual_extractor.py` | Unzips and URL-decodes all folder/file names (pure stdlib) |
-| `GapAnalyzer` | `app/services/gap_analyzer.py` | Checks 10 critical spec paths; returns `GapReport(present, missing, broken)` |
-| `GapFiller` | `app/services/gap_filler.py` | Calls Claude to generate spec HTML for missing sections; skips when `ANTHROPIC_API_KEY` unset |
-| `RAGIndexer` | `app/services/rag_indexer.py` | Walks HTML files, upserts scoped `ManualChunk` rows. Params: `scope`, `engine_id`, `transmission_id`. Includes vision helpers for image-only pages. |
-| `ManualIngestor` | `app/services/manual_ingestor.py` | Orchestrates full pipeline via `BackgroundTasks`; in-memory `_jobs` dict. Params: `scope`, `engine_id`, `transmission_id`, `vision_extract`. |
-| `VisionExtractor` | `app/services/vision_extractor.py` | Claude Haiku vision extraction for diagram pages (`VISION_CATEGORIES` list). Skips >5 MB images. No-op without `ANTHROPIC_API_KEY`. |
-| `PDFIngestor` | `app/services/pdf_ingestor.py` | `pypdf` page extraction → `ManualChunk` rows with `data_source="user_uploaded"` |
+| Service               | Location                           | Purpose                                                                                                                                                                                                              |
+| --------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AdvisorService`      | `app/services/advisor.py`          | Anthropic path: agentic tool-use loop with `search_manual` + `fetch_diagram` tools. `_build_search_tool()` is async (runs COUNT queries per scope). Gemini path: pre-fetch FTS. Falls back to mock without API keys. |
+| `CarQueryClient`      | `app/services/carquery_client.py`  | Free CarQuery API client for displacement, compression ratio, bore/stroke, HP, torque, weight                                                                                                                        |
+| `SpecLookupService`   | `app/services/spec_lookup.py`      | Orchestrates CarQuery + NHTSA lookups, merges results, enriches entities                                                                                                                                             |
+| `PDFService`          | `app/services/pdf_service.py`      | WeasyPrint + Jinja2 templates. Requires system libs (`brew install cairo pango gdk-pixbuf libffi`). Returns 503 if unavailable                                                                                       |
+| `StorageService`      | `app/services/storage.py`          | Supabase Storage uploads (buckets: `uploads`, `meshes`, `manuals`). Includes `upload_bytes()` async method for direct byte upload.                                                                                   |
+| `VINDecoderService`   | `app/services/vin_decoder.py`      | NHTSA vPIC API for VIN decoding                                                                                                                                                                                      |
+| `get_supabase_client` | `app/services/supabase_client.py`  | Singleton Supabase client for auth + storage (LRU cached). Patch at definition site only — lazy imports in auth.py and routers/auth.py mean patching those modules raises AttributeError.                            |
+| `CharmDownloader`     | `app/services/charm_downloader.py` | Fetches charm.li year-index page, fuzzy-matches model with `difflib`, streams ZIP download                                                                                                                           |
+| `ManualExtractor`     | `app/services/manual_extractor.py` | Unzips and URL-decodes all folder/file names. Validates ZIP members to block path traversal and symlink attacks.                                                                                                     |
+| `GapAnalyzer`         | `app/services/gap_analyzer.py`     | Checks 10 critical spec paths; returns `GapReport(present, missing, broken)`                                                                                                                                         |
+| `GapFiller`           | `app/services/gap_filler.py`       | Calls Claude to generate spec HTML for missing sections; skips when `ANTHROPIC_API_KEY` unset                                                                                                                        |
+| `RAGIndexer`          | `app/services/rag_indexer.py`      | Walks HTML files, upserts `ManualChunk` rows. Source precedence via `source_priority` column; atomic `INSERT ... ON CONFLICT DO UPDATE WHERE priority >=`. Image pages: vision → storage → stub fallback chain.      |
+| `ManualSearch`        | `app/services/manual_search.py`    | Shared FTS helper (PostgreSQL `to_tsvector` + `plainto_tsquery`; ILIKE fallback for SQLite). Used by advisor and manuals router.                                                                                     |
+| `ManualIngestor`      | `app/services/manual_ingestor.py`  | Orchestrates full pipeline via `BackgroundTasks`. Job state in `IngestJob` PostgreSQL table. Takes `session_factory` callable — background tasks open their own DB sessions.                                         |
+| `VisionExtractor`     | `app/services/vision_extractor.py` | Claude Haiku vision extraction for diagram pages (`VISION_CATEGORIES` list). Skips >5 MB images. No-op without `ANTHROPIC_API_KEY`.                                                                                  |
+| `PDFIngestor`         | `app/services/pdf_ingestor.py`     | `pypdf` page extraction → `ManualChunk` rows with `data_source="user_uploaded"`                                                                                                                                      |
 
 ### Spec Lookup System
 
@@ -95,6 +97,7 @@ The advisor system prompt includes data integrity rules that prevent fabricating
 ### Manual Ingestion Pipeline
 
 Build creation triggers up to 3 background ingests automatically:
+
 1. **Chassis** — target vehicle's service manual (`scope="chassis"`)
 2. **Engine** — donor vehicle manual (`scope="engine"`, `engine_id=<id>`) — requires `engine.origin_year/make/model`
 3. **Transmission** — donor vehicle manual (`scope="transmission"`, `transmission_id=<id>`) — requires `transmission.origin_year/make/model`
@@ -103,28 +106,24 @@ Build creation triggers up to 3 background ingests automatically:
 
 Manual content is only downloaded on first build creation. Pre-populate via `POST /api/manuals/ingest` if needed before any builds exist.
 
-The `/api/manuals/upload` endpoint accepts PDF or ZIP files with a `scope` and component ID, enabling user-contributed spec sheets. PDFs are processed by `PDFIngestor` (pypdf); ZIPs go through the standard `ManualIngestor` pipeline.
+The `/api/manuals/upload` endpoint accepts PDF, ZIP, or image (PNG/JPG) files with a `scope` and component ID. PDFs → `PDFIngestor`; ZIPs → `ManualIngestor`; images → `VisionExtractor` → single chunk.
 
-`rag_indexer.py` unique key: `(vehicle_make, vehicle_model, vehicle_year, section_path, scope, engine_id, transmission_id)` — so the same section can exist as both `scope="chassis"` and `scope="engine"` without collision.
+`rag_indexer.py` unique key: `(vehicle_make, vehicle_model, vehicle_year, section_path, scope, COALESCE(engine_id,''), COALESCE(transmission_id,''))` — so the same section can exist as both `scope="chassis"` and `scope="engine"` without collision.
+
+**Session factory pattern**: Background tasks in `builds.py` and `manuals.py` receive `async_session_maker` (not a live session). The request-scoped session closes when the handler returns. `run_pipeline` signature: `session_factory: Callable[[], Any]` — it opens its own `async with session_factory() as db:`.
 
 ### Testing
 
-Tests use pytest-anyio with async support. `tests/conftest.py` overrides `DATABASE_URL` to SQLite for isolation and clears the settings LRU cache. All Supabase interactions (auth, storage) are mocked via `unittest.mock.patch` on `get_supabase_client` across four modules (`supabase_client`, `auth`, `routers.auth`, `storage`). Login endpoint accepts JSON body (not OAuth2 form data).
+**49 tests pass** (24 API + 25 RAG). Run: `pytest tests/`
 
-**Known issue**: All 24 tests currently fail with `AttributeError` — pre-existing regression in the mock patching for `app.utils.auth.get_supabase_client`, unrelated to the manual pipeline.
+`tests/conftest.py` overrides `DATABASE_URL` to SQLite, clears `get_settings` and `get_supabase_client` LRU caches. Mock only `app.services.supabase_client.get_supabase_client` — `auth.py` and `routers/auth.py` import it lazily inside functions, so patching those module namespaces raises `AttributeError`.
 
-## Environment Variables
-
-Required in `.env`:
-- `DATABASE_URL` — Supabase PostgreSQL via pooler (`postgresql+asyncpg://postgres.PROJECT_REF:PASSWORD@aws-1-us-east-1.pooler.supabase.com:6543/postgres`)
-- `SECRET_KEY` — App-level signing key (not used for auth tokens)
-- `SUPABASE_URL` — Supabase project URL
-- `SUPABASE_ANON_KEY` — Supabase anon/public key
-- `ANTHROPIC_API_KEY` — Optional, enables AI advisor (falls back to mock)
+`tests/test_rag.py` covers RAG-specific codepaths: breadcrumb parsing, symlink rejection, source precedence upsert, image page routing, SSRF guard (all layers), FTS search, `run_pipeline` regression.
 
 ## Environment Variables
 
 Required in `.env`:
+
 - `DATABASE_URL` — Supabase PostgreSQL via pooler (`postgresql+asyncpg://postgres.PROJECT_REF:PASSWORD@aws-1-us-east-1.pooler.supabase.com:6543/postgres`)
 - `SECRET_KEY` — App-level signing key (not used for auth tokens)
 - `SUPABASE_URL` — Supabase project URL
@@ -135,7 +134,7 @@ Required in `.env`:
 
 ## Supabase Setup
 
-1. Create storage buckets `uploads` and `meshes` in Supabase Dashboard (set to public if you want public URLs)
+1. Create storage buckets `uploads`, `meshes`, and `manuals` in Supabase Dashboard (`manuals` should be public-read for diagram image URLs)
 2. Tables are created via `Base.metadata.create_all` on startup (`init_db` in lifespan) or via Alembic migrations
 3. Auth is handled entirely by Supabase — no local password storage
 4. Connection uses pgBouncer pooler (port 6543) — prepared statements are disabled
@@ -143,5 +142,8 @@ Required in `.env`:
 ## Alembic Migrations
 
 Current migration chain:
+
 - `8e125203e866` — Add expanded spec fields and data provenance (baseline)
 - `a1b2c3d4e5f6` — Add manual scoping: `origin_year/make/model` on engines/transmissions; `scope/engine_id/transmission_id` on manual_chunks
+- `c3d4e5f6a7b8` — GIN index on `manual_chunks.content` + unique expression index for upsert constraint
+- `d4e5f6a7b8c9` — Add `ingest_jobs` table (PostgreSQL job persistence); add `source_priority` column on `manual_chunks` with backfill

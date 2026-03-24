@@ -3,7 +3,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, 
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from app.database import get_db
+from app.database import get_db, async_session_maker
 from app.models.build import Build
 from app.models.engine import Engine
 from app.models.vehicle import Vehicle
@@ -140,7 +140,7 @@ async def create_build(
         background_tasks.add_task(
             _ingestor.run_pipeline,
             job_id_chassis, vehicle.year, vehicle.make, vehicle.model,
-            build_data.vehicle_id, db, None, drive_type, cylinders,
+            build_data.vehicle_id, async_session_maker, None, drive_type, cylinders,
             scope="chassis",
         )
         logger.info(
@@ -158,7 +158,7 @@ async def create_build(
             _ingestor.run_pipeline,
             job_id_engine,
             engine_obj.origin_year, engine_obj.origin_make, engine_obj.origin_model,
-            None, db, None, None, None,
+            None, async_session_maker, None, None, None,
             scope="engine",
             engine_id=str(engine_obj.id),
         )
@@ -179,7 +179,7 @@ async def create_build(
             job_id_trans,
             transmission_obj.origin_year, transmission_obj.origin_make,
             transmission_obj.origin_model,
-            None, db, None, None, None,
+            None, async_session_maker, None, None, None,
             scope="transmission",
             transmission_id=str(transmission_obj.id),
         )
