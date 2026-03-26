@@ -462,6 +462,9 @@ Claude Sonnet (with build context + spec database in system prompt)
 **Engines Table:**
 
 - EngineID, Make, Model, Variant
+- **EngineFamily** (e.g. "LS", "2JZ", "Coyote") — used for wizard drill-down grouping
+- **OriginVariant** (e.g. "2JZ-GTE") — exact code passed to charm.li manual download to ensure correct variant
+- OriginYear, OriginMake, OriginModel — donor vehicle for service manual sourcing
 - Dimensions (H, W, L), Weight
 - Fuel pressure requirement, Fuel flow requirement
 - Cooling capacity recommendation
@@ -471,6 +474,8 @@ Claude Sonnet (with build context + spec database in system prompt)
 **Transmissions Table:**
 
 - TransmissionID, Make, Model
+- **OriginVariant** (e.g. "R154", "T56 Magnum") — for correct charm.li variant download
+- OriginYear, OriginMake, OriginModel — donor vehicle for service manual sourcing
 - Dimensions, Weight
 - BellhousingPattern
 - MeshFileURL
@@ -478,6 +483,7 @@ Claude Sonnet (with build context + spec database in system prompt)
 **Vehicles Table:**
 
 - VehicleID, Year, Make, Model, Trim
+- **StockTransmissionModel** (e.g. "Mazda M15M-D 5-speed") — displayed as informational label in build wizard's "Original chassis" transmission group
 - VIN pattern
 - BayScanMeshURL
 - ContributorUserID
@@ -501,7 +507,7 @@ Claude Sonnet (with build context + spec database in system prompt)
    - **Match found → Library path:** User selects the existing scan (Verified or Community tier) and proceeds to Step 5
    - **No match → Scan path:** User sees "No scan available yet" with options to (a) scan their own vehicle using LiDAR, or (b) request this vehicle be added to the library
 4. **Scan Cleanup (scan path only):** User marks and removes non-permanent items (hoses, wires) using tap-to-select
-5. **Drivetrain Selection:** User selects target engine and transmission from library
+5. **Drivetrain Selection:** User selects engine via family drill-down (pick family → pick specific variant; auto-selects if only one variant exists). Transmission shown in 3 groups: "Stock with this engine" (came factory with the chosen engine), "Original chassis transmission" (informational label of what the target vehicle came with from the factory), and "Other compatible" (bellhousing match). If a desired engine or transmission isn't in the database, an "Add Different" dialog accepts a text description and uses AI to identify and pre-fill specs.
 6. **Accessory Configuration:** User toggles relevant options (oil pan type, headers, intake)
 7. **Analysis:** App processes fitment and displays collision heatmap
 8. **Exploration:** User manipulates engine position, toggles accessories, chats with AI advisor
@@ -627,6 +633,11 @@ The library must have content before launch. Strategy:
 - ✅ Donor vehicle concept: `origin_year/make/model` on Engine + Transmission models maps each component to its source manual
 - ✅ glTF (.glb) validated as mesh format — renders in React Three Fiber (pipeline test complete)
 - ✅ CORS fix: explicit origin allowlist (was wildcard + credentials, which browsers reject)
+- ✅ Engine family drill-down wizard: engines grouped by family (LS, 2JZ, Coyote, etc.) with family cards → variant selection; auto-selects if only one variant in family
+- ✅ Grouped transmission selection: "Stock with this engine" / "Original chassis" / "Other compatible" — inferred from origin fields, no new DB join needed
+- ✅ AI engine/transmission identification: `POST /api/engines/identify` + `POST /api/transmissions/identify` — Claude Haiku returns structured suggestions; "Add Different" dialog in wizard surfaces this for unlisted components
+- ✅ Variant-specific manual downloads: `origin_variant` field on engines/transmissions passed as `variant_hint` to CharmDownloader (+3 score boost), ensuring correct variant manual is fetched (e.g. 2JZ-GTE turbo, not 2JZ-GE NA)
+- ✅ Vision extraction expanded: `VISION_CATEGORIES` now includes spec-table pages (torque specifications, valve clearance, service specifications, tightening torques) in addition to wiring/schematic diagrams
 
 **Remaining (in dependency order):**
 
