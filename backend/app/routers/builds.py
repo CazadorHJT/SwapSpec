@@ -161,6 +161,7 @@ async def create_build(
             None, async_session_maker, None, None, None,
             scope="engine",
             engine_id=str(engine_obj.id),
+            variant_hint=engine_obj.origin_variant,
         )
         logger.info(
             f"Queued engine ingest: {engine_obj.origin_year} {engine_obj.origin_make} "
@@ -182,6 +183,7 @@ async def create_build(
             None, async_session_maker, None, None, None,
             scope="transmission",
             transmission_id=str(transmission_obj.id),
+            variant_hint=transmission_obj.origin_variant,
         )
         logger.info(
             f"Queued transmission ingest: {transmission_obj.origin_year} "
@@ -243,6 +245,11 @@ def _build_engine_export(engine: Engine) -> dict:
         "redline_rpm": engine.redline_rpm,
         "can_bus_protocol": engine.can_bus_protocol,
         "oil_pan_depth_in": engine.oil_pan_depth_in,
+        "engine_family": engine.engine_family,
+        "origin_year": engine.origin_year,
+        "origin_make": engine.origin_make,
+        "origin_model": engine.origin_model,
+        "origin_variant": engine.origin_variant,
         "data_sources": engine.data_sources,
     }
 
@@ -281,6 +288,10 @@ def _build_transmission_export(transmission: Transmission) -> dict | None:
         "gear_ratios": transmission.gear_ratios,
         "max_torque_capacity_lb_ft": transmission.max_torque_capacity_lb_ft,
         "input_shaft_spline": transmission.input_shaft_spline,
+        "origin_year": transmission.origin_year,
+        "origin_make": transmission.origin_make,
+        "origin_model": transmission.origin_model,
+        "origin_variant": transmission.origin_variant,
         "data_sources": transmission.data_sources,
     }
 

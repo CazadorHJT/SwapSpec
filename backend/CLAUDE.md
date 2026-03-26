@@ -67,24 +67,52 @@ When creating entities via API, user-provided spec fields are automatically tagg
 
 ### Services
 
-| Service               | Location                           | Purpose                                                                                                                                                                                                              |
-| --------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AdvisorService`      | `app/services/advisor.py`          | Anthropic path: agentic tool-use loop with `search_manual` + `fetch_diagram` tools. `_build_search_tool()` is async (runs COUNT queries per scope). Gemini path: pre-fetch FTS. Falls back to mock without API keys. |
-| `CarQueryClient`      | `app/services/carquery_client.py`  | Free CarQuery API client for displacement, compression ratio, bore/stroke, HP, torque, weight                                                                                                                        |
-| `SpecLookupService`   | `app/services/spec_lookup.py`      | Orchestrates CarQuery + NHTSA lookups, merges results, enriches entities                                                                                                                                             |
-| `PDFService`          | `app/services/pdf_service.py`      | WeasyPrint + Jinja2 templates. Requires system libs (`brew install cairo pango gdk-pixbuf libffi`). Returns 503 if unavailable                                                                                       |
-| `StorageService`      | `app/services/storage.py`          | Supabase Storage uploads (buckets: `uploads`, `meshes`, `manuals`). Includes `upload_bytes()` async method for direct byte upload.                                                                                   |
-| `VINDecoderService`   | `app/services/vin_decoder.py`      | NHTSA vPIC API for VIN decoding                                                                                                                                                                                      |
-| `get_supabase_client` | `app/services/supabase_client.py`  | Singleton Supabase client for auth + storage (LRU cached). Patch at definition site only — lazy imports in auth.py and routers/auth.py mean patching those modules raises AttributeError.                            |
-| `CharmDownloader`     | `app/services/charm_downloader.py` | Fetches charm.li year-index page, fuzzy-matches model with `difflib`, streams ZIP download                                                                                                                           |
-| `ManualExtractor`     | `app/services/manual_extractor.py` | Unzips and URL-decodes all folder/file names. Validates ZIP members to block path traversal and symlink attacks.                                                                                                     |
-| `GapAnalyzer`         | `app/services/gap_analyzer.py`     | Checks 10 critical spec paths; returns `GapReport(present, missing, broken)`                                                                                                                                         |
-| `GapFiller`           | `app/services/gap_filler.py`       | Calls Claude to generate spec HTML for missing sections; skips when `ANTHROPIC_API_KEY` unset                                                                                                                        |
-| `RAGIndexer`          | `app/services/rag_indexer.py`      | Walks HTML files, upserts `ManualChunk` rows. Source precedence via `source_priority` column; atomic `INSERT ... ON CONFLICT DO UPDATE WHERE priority >=`. Image pages: vision → storage → stub fallback chain.      |
-| `ManualSearch`        | `app/services/manual_search.py`    | Shared FTS helper (PostgreSQL `to_tsvector` + `plainto_tsquery`; ILIKE fallback for SQLite). Used by advisor and manuals router.                                                                                     |
-| `ManualIngestor`      | `app/services/manual_ingestor.py`  | Orchestrates full pipeline via `BackgroundTasks`. Job state in `IngestJob` PostgreSQL table. Takes `session_factory` callable — background tasks open their own DB sessions.                                         |
-| `VisionExtractor`     | `app/services/vision_extractor.py` | Claude Haiku vision extraction for diagram pages (`VISION_CATEGORIES` list). Skips >5 MB images. No-op without `ANTHROPIC_API_KEY`.                                                                                  |
-| `PDFIngestor`         | `app/services/pdf_ingestor.py`     | `pypdf` page extraction → `ManualChunk` rows with `data_source="user_uploaded"`                                                                                                                                      |
+| Service               | Location                           | Purpose                                                                                                                                                                                                                 |
+| --------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AdvisorService`      | `app/services/advisor.py`          | Anthropic path: agentic tool-use loop with `search_manual` + `fetch_diagram` tools. `_build_search_tool()` is async (runs COUNT queries per scope). Gemini path: pre-fetch FTS. Falls back to mock without API keys.    |
+| `CarQueryClient`      | `app/services/carquery_client.py`  | Free CarQuery API client for displacement, compression ratio, bore/stroke, HP, torque, weight                                                                                                                           |
+| `SpecLookupService`   | `app/services/spec_lookup.py`      | Orchestrates CarQuery + NHTSA lookups, merges results, enriches entities                                                                                                                                                |
+| `PDFService`          | `app/services/pdf_service.py`      | WeasyPrint + Jinja2 templates. Requires system libs (`brew install cairo pango gdk-pixbuf libffi`). Returns 503 if unavailable                                                                                          |
+| `StorageService`      | `app/services/storage.py`          | Supabase Storage uploads (buckets: `uploads`, `meshes`, `manuals`). Includes `upload_bytes()` async method for direct byte upload.                                                                                      |
+| `VINDecoderService`   | `app/services/vin_decoder.py`      | NHTSA vPIC API for VIN decoding                                                                                                                                                                                         |
+| `get_supabase_client` | `app/services/supabase_client.py`  | Singleton Supabase client for auth + storage (LRU cached). Patch at definition site only — lazy imports in auth.py and routers/auth.py mean patching those modules raises AttributeError.                               |
+| `CharmDownloader`     | `app/services/charm_downloader.py` | Fetches charm.li year-index page, fuzzy-matches model with `difflib`, streams ZIP download                                                                                                                              |
+| `ManualExtractor`     | `app/services/manual_extractor.py` | Unzips and URL-decodes all folder/file names. Validates ZIP members to block path traversal and symlink attacks.                                                                                                        |
+| `GapAnalyzer`         | `app/services/gap_analyzer.py`     | Checks 10 critical spec paths; returns `GapReport(present, missing, broken)`                                                                                                                                            |
+| `GapFiller`           | `app/services/gap_filler.py`       | Calls Claude to generate spec HTML for missing sections; skips when `ANTHROPIC_API_KEY` unset                                                                                                                           |
+| `RAGIndexer`          | `app/services/rag_indexer.py`      | Walks HTML files, upserts `ManualChunk` rows. Source precedence via `source_priority` column; atomic `INSERT ... ON CONFLICT DO UPDATE WHERE priority >=`. Image pages: vision → storage → stub fallback chain.         |
+| `ManualSearch`        | `app/services/manual_search.py`    | Shared FTS helper (PostgreSQL `to_tsvector` + `plainto_tsquery`; ILIKE fallback for SQLite). Used by advisor and manuals router.                                                                                        |
+| `ManualIngestor`      | `app/services/manual_ingestor.py`  | Orchestrates full pipeline via `BackgroundTasks`. Job state in `IngestJob` PostgreSQL table. Takes `session_factory` callable — background tasks open their own DB sessions.                                            |
+| `VisionExtractor`     | `app/services/vision_extractor.py` | Claude Haiku vision extraction for diagram AND spec-table pages (`VISION_CATEGORIES` list includes torque specs, valve clearance, service specifications, etc.). Skips >5 MB images. No-op without `ANTHROPIC_API_KEY`. |
+| `PDFIngestor`         | `app/services/pdf_ingestor.py`     | `pypdf` page extraction → `ManualChunk` rows with `data_source="user_uploaded"`                                                                                                                                         |
+
+### Engine + Transmission Wizard Endpoints
+
+New endpoints for the build wizard's drill-down UX:
+
+```bash
+# Engine family grouping (for Step 1 family cards)
+GET /api/engines/families?make=Toyota
+# Returns [{family, make, variants: [{id, model, variant, power_hp, ...}]}]
+
+# AI engine identification (for "Add Different Engine" dialog)
+POST /api/engines/identify
+{"query": "2jz turbo"}
+# Returns {suggestions: [...], existing_match_id: "uuid" | null}
+
+# Grouped transmissions for build wizard (for Step 2)
+GET /api/transmissions/for-build?engine_id=...&vehicle_id=...
+# Returns {stock_for_engine: [...], chassis_original_label: "...", chassis_original: [...], other_compatible: [...]}
+
+# AI transmission identification (for "Add Different Transmission" dialog)
+POST /api/transmissions/identify
+{"query": "t56 magnum"}
+# Returns {suggestions: [...], existing_match_id: "uuid" | null}
+```
+
+**"Stock for engine" logic**: queries transmissions sharing `origin_year/make/model` with the engine — no new DB field needed. The R154 (origin: 1993 Toyota Supra) matches the 2JZ-GTE (same origin), so it appears as stock.
+
+**"Chassis original" logic**: looks up `vehicle.stock_transmission_model` string label. If a transmission in the DB matches, it's returned as selectable; otherwise just the label string is shown.
 
 ### Spec Lookup System
 
@@ -147,3 +175,4 @@ Current migration chain:
 - `a1b2c3d4e5f6` — Add manual scoping: `origin_year/make/model` on engines/transmissions; `scope/engine_id/transmission_id` on manual_chunks
 - `c3d4e5f6a7b8` — GIN index on `manual_chunks.content` + unique expression index for upsert constraint
 - `d4e5f6a7b8c9` — Add `ingest_jobs` table (PostgreSQL job persistence); add `source_priority` column on `manual_chunks` with backfill
+- `e5f6a7b8c9d0` — Add `engine_family` + `origin_variant` to engines; `origin_variant` to transmissions; `stock_transmission_model` to vehicles; backfills seed data values

@@ -62,6 +62,7 @@ export interface Vehicle {
   steering_type?: string;
   steering_clearance_notes?: string;
   stock_ground_clearance_in?: number;
+  stock_transmission_model?: string;
   // Data provenance
   data_sources?: DataSources;
   data_source_notes?: string;
@@ -113,6 +114,11 @@ export interface Engine {
   make: string;
   model: string;
   variant?: string;
+  engine_family?: string;
+  origin_year?: number;
+  origin_make?: string;
+  origin_model?: string;
+  origin_variant?: string;
   dimensions_h?: number;
   dimensions_w?: number;
   dimensions_l?: number;
@@ -209,6 +215,10 @@ export interface Transmission {
   id: string;
   make: string;
   model: string;
+  origin_year?: number;
+  origin_make?: string;
+  origin_model?: string;
+  origin_variant?: string;
   dimensions_h?: number;
   dimensions_w?: number;
   dimensions_l?: number;
@@ -343,4 +353,70 @@ export interface SpecLookupResponse {
   specs: Record<string, unknown>;
   sources: Record<string, string>;
   confidence: "high" | "medium" | "low";
+}
+
+// ── Engine Families ───────────────────────────────────
+export interface EngineFamilyVariant {
+  id: string;
+  model: string;
+  variant?: string;
+  power_hp?: number;
+  torque_lb_ft?: number;
+  displacement_liters?: number;
+}
+
+export interface EngineFamily {
+  family: string;
+  make: string;
+  variants: EngineFamilyVariant[];
+}
+
+// ── Transmission Groups ───────────────────────────────
+export interface TransmissionGroups {
+  stock_for_engine: Transmission[];
+  chassis_original_label?: string;
+  chassis_original: Transmission[];
+  other_compatible: Transmission[];
+}
+
+// ── Engine/Transmission Identify ─────────────────────
+export interface EngineIdentifySuggestion {
+  make: string;
+  model: string;
+  variant?: string;
+  engine_family?: string;
+  displacement_liters?: number;
+  power_hp?: number;
+  torque_lb_ft?: number;
+  origin_year?: number;
+  origin_make?: string;
+  origin_model?: string;
+  origin_variant?: string;
+  confidence: string;
+  explanation?: string;
+}
+
+export interface EngineIdentifyResponse {
+  suggestions: EngineIdentifySuggestion[];
+  existing_match_id?: string;
+}
+
+export interface TransmissionIdentifySuggestion {
+  make: string;
+  model: string;
+  trans_type?: string;
+  gear_count?: number;
+  bellhousing_pattern?: string;
+  max_torque_capacity_lb_ft?: number;
+  origin_year?: number;
+  origin_make?: string;
+  origin_model?: string;
+  origin_variant?: string;
+  confidence: string;
+  explanation?: string;
+}
+
+export interface TransmissionIdentifyResponse {
+  suggestions: TransmissionIdentifySuggestion[];
+  existing_match_id?: string;
 }

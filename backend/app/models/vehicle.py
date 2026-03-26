@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 from sqlalchemy import String, Integer, Float, DateTime, JSON, Text, ForeignKey, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -50,6 +51,9 @@ class Vehicle(Base):
     steering_type: Mapped[str] = mapped_column(String(100), nullable=True)
     steering_clearance_notes: Mapped[str] = mapped_column(String(500), nullable=True)
     stock_ground_clearance_in: Mapped[float] = mapped_column(Float, nullable=True)
+
+    # Stock transmission for chassis-original grouping in build wizard
+    stock_transmission_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Data provenance
     data_sources: Mapped[dict] = mapped_column(JSON, nullable=True)

@@ -84,6 +84,7 @@ class ManualIngestor:
         engine_id: Optional[str] = None,
         transmission_id: Optional[str] = None,
         vision_extract: bool = True,
+        variant_hint: Optional[str] = None,
     ) -> None:
         """Full pipeline: download → extract → analyze → fill → index.
 
@@ -116,6 +117,7 @@ class ManualIngestor:
                     zip_path = await downloader.find_and_download(
                         year, make, model, base_path / "zips",
                         drive_type=drive_type, cylinders=cylinders,
+                        variant_hint=variant_hint,
                     )
                     if not zip_path:
                         job.status = "failed"

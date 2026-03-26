@@ -41,6 +41,7 @@ class CharmDownloader:
         dest_dir: Path,
         drive_type: Optional[str] = None,
         cylinders: Optional[int] = None,
+        variant_hint: Optional[str] = None,
     ) -> Optional[Path]:
         """Find the best-matching vehicle variant and download its ZIP. Returns zip path or None."""
         make_url = self._normalize_make(make)
@@ -48,7 +49,7 @@ class CharmDownloader:
         if not variants:
             return None
 
-        best = self._best_match(variants, model, drive_type=drive_type, cylinders=cylinders)
+        best = self._best_match(variants, model, drive_type=drive_type, cylinders=cylinders, variant_hint=variant_hint)
         if not best:
             return None
 
@@ -84,6 +85,7 @@ class CharmDownloader:
         model: str,
         drive_type: Optional[str] = None,
         cylinders: Optional[int] = None,
+        variant_hint: Optional[str] = None,
     ) -> Optional[str]:
         """Fuzzy-match model against variant list. Returns best match or None."""
         # Try difflib against full variant names first
@@ -114,7 +116,7 @@ class CharmDownloader:
         # Collect all candidates then pick highest-scoring one
         candidates = [full_v for full_v, part in variant_parts if model_norm in normalize(part)]
         if candidates:
-            return max(candidates, key=lambda v: self._score_variant(v, drive_type, cylinders))
+            return max(candidates, key=lambda v: self._score_variant(v, drive_type, cylinders, variant_hint))
 
         # Last resort: plain substring match
         model_lower = model.lower()
@@ -125,13 +127,15 @@ class CharmDownloader:
         return None
 
     def _score_variant(
-        self, variant: str, drive_type: Optional[str], cylinders: Optional[int]
+        self, variant: str, drive_type: Optional[str], cylinders: Optional[int],
+        variant_hint: Optional[str] = None,
     ) -> int:
         """Score a variant higher if it matches known drivetrain/engine hints."""
         score = 0
         v_lower = variant.lower()
+        if variant_hint and variant_hint.lower() in v_lower:
+            score += 3  # strongest signal — beats drive_type (+2) and cylinders (+1)
         if drive_type:
-            # Normalize "4x4"/"4WD"/"four wheel" → "4wd"
             dt = drive_type.lower().replace("x", "").replace(" ", "")
             if dt in ("44", "4wd", "awd") and "4wd" in v_lower:
                 score += 2

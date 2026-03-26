@@ -15,3 +15,7 @@ export function useEngines(params?: {
     [params?.make, params?.min_hp, params?.max_hp, params?.skip, params?.limit],
   );
 }
+
+export function useEngineFamilies(make?: string) {
+  return useApi(() => api.getEngineFamilies(make), [make]);
+}

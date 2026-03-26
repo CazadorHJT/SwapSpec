@@ -2,9 +2,18 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, Loader2 } from "lucide-react";
 import * as api from "@/lib/api-client";
-import type { Vehicle, Engine, Transmission } from "@/lib/types";
+import type {
+  Vehicle,
+  Engine,
+  Transmission,
+  EngineFamily,
+  EngineFamilyVariant,
+  TransmissionGroups,
+  EngineIdentifySuggestion,
+  TransmissionIdentifySuggestion,
+} from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,16 +23,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { VinDecoder } from "@/components/vehicles/vin-decoder";
 import { VehicleFilters } from "@/components/vehicles/vehicle-filters";
 import { VehicleTable } from "@/components/vehicles/vehicle-table";
-import { EngineFilters } from "@/components/engines/engine-filters";
-import { EngineTable } from "@/components/engines/engine-table";
-import { TransmissionTable } from "@/components/transmissions/transmission-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useApi } from "@/hooks/use-api";
+import { useEngineFamilies } from "@/hooks/use-engines";
 import { toast } from "sonner";
 
 const STEPS = [
@@ -43,16 +59,36 @@ export function BuildCreateWizard() {
   const [engine, setEngine] = useState<Engine | null>(null);
   const [transmission, setTransmission] = useState<Transmission | null>(null);
 
-  // Step 1 filters
+  // Step 0 vehicle filters
   const [vYear, setVYear] = useState("");
   const [vMake, setVMake] = useState("");
   const [vModel, setVModel] = useState("");
   const [vDriveType, setVDriveType] = useState("");
   const [vBodyStyle, setVBodyStyle] = useState("");
 
-  // Step 2 filters
-  const [eMake, setEMake] = useState("");
-  const [eHpRange, setEHpRange] = useState<[number, number]>([0, 2000]);
+  // Step 1: engine family drill-down
+  const [eFamilyMake, setEFamilyMake] = useState("");
+  const [selectedFamily, setSelectedFamily] = useState<EngineFamily | null>(
+    null,
+  );
+
+  // Add engine dialog
+  const [addEngineOpen, setAddEngineOpen] = useState(false);
+  const [engineQuery, setEngineQuery] = useState("");
+  const [engineQueryLoading, setEngineQueryLoading] = useState(false);
+  const [engineSuggestions, setEngineSuggestions] = useState<
+    EngineIdentifySuggestion[]
+  >([]);
+  const [engineExistingId, setEngineExistingId] = useState<string | null>(null);
+
+  // Add transmission dialog
+  const [addTransOpen, setAddTransOpen] = useState(false);
+  const [transQuery, setTransQuery] = useState("");
+  const [transQueryLoading, setTransQueryLoading] = useState(false);
+  const [transSuggestions, setTransSuggestions] = useState<
+    TransmissionIdentifySuggestion[]
+  >([]);
+  const [transExistingId, setTransExistingId] = useState<string | null>(null);
 
   const vehicleParams = {
     year: vYear ? parseInt(vYear) : undefined,
@@ -66,22 +102,14 @@ export function BuildCreateWizard() {
     [vYear, vMake, vModel, vDriveType, vBodyStyle],
   );
 
-  const engineParams = {
-    make: eMake || undefined,
-    min_hp: eHpRange[0] > 0 ? eHpRange[0] : undefined,
-    max_hp: eHpRange[1] < 2000 ? eHpRange[1] : undefined,
-  };
-  const engineData = useApi(
-    () => api.getEngines(engineParams),
-    [eMake, eHpRange[0], eHpRange[1]],
-  );
+  const familiesData = useEngineFamilies(eFamilyMake || undefined);
 
-  const transData = useApi(
+  const transGroupsData = useApi(
     () =>
       engine
-        ? api.getCompatibleTransmissions(engine.id)
-        : Promise.resolve({ transmissions: [], total: 0 }),
-    [engine?.id],
+        ? api.getTransmissionsForBuild(engine.id, vehicle?.id)
+        : Promise.resolve(null),
+    [engine?.id, vehicle?.id],
   );
 
   const handleVinVehicleCreated = useCallback(
@@ -110,11 +138,123 @@ export function BuildCreateWizard() {
       toast.success("Build created!");
       router.push(`/builds/${build.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create build");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create build",
+      );
     } finally {
       setCreating(false);
     }
   }, [vehicle, engine, transmission, router]);
+
+  // Engine identify handler
+  const handleEngineSearch = async () => {
+    if (!engineQuery.trim()) return;
+    setEngineQueryLoading(true);
+    try {
+      const result = await api.identifyEngine(engineQuery);
+      setEngineSuggestions(result.suggestions);
+      setEngineExistingId(result.existing_match_id ?? null);
+    } catch {
+      toast.error("AI identification failed.");
+    } finally {
+      setEngineQueryLoading(false);
+    }
+  };
+
+  const handleSelectEngineSuggestion = async (
+    sug: EngineIdentifySuggestion,
+  ) => {
+    if (engineExistingId) {
+      // Fetch the existing engine
+      try {
+        const existing = await api.getEngine(engineExistingId);
+        setEngine(existing);
+        setAddEngineOpen(false);
+        toast.success(
+          `Selected existing engine: ${existing.make} ${existing.model}`,
+        );
+      } catch {
+        toast.error("Failed to load existing engine.");
+      }
+      return;
+    }
+    try {
+      const created = await api.createEngine({
+        make: sug.make,
+        model: sug.model,
+        variant: sug.variant,
+        engine_family: sug.engine_family,
+        displacement_liters: sug.displacement_liters,
+        power_hp: sug.power_hp,
+        torque_lb_ft: sug.torque_lb_ft,
+        origin_year: sug.origin_year,
+        origin_make: sug.origin_make,
+        origin_model: sug.origin_model,
+        origin_variant: sug.origin_variant,
+      } as Parameters<typeof api.createEngine>[0]);
+      setEngine(created);
+      setAddEngineOpen(false);
+      toast.success(`Created and selected: ${created.make} ${created.model}`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create engine.",
+      );
+    }
+  };
+
+  // Transmission identify handler
+  const handleTransSearch = async () => {
+    if (!transQuery.trim()) return;
+    setTransQueryLoading(true);
+    try {
+      const result = await api.identifyTransmission(transQuery);
+      setTransSuggestions(result.suggestions);
+      setTransExistingId(result.existing_match_id ?? null);
+    } catch {
+      toast.error("AI identification failed.");
+    } finally {
+      setTransQueryLoading(false);
+    }
+  };
+
+  const handleSelectTransSuggestion = async (
+    sug: TransmissionIdentifySuggestion,
+  ) => {
+    if (transExistingId) {
+      try {
+        const existing = await api.getTransmission(transExistingId);
+        setTransmission(existing);
+        setAddTransOpen(false);
+        toast.success(`Selected existing: ${existing.make} ${existing.model}`);
+      } catch {
+        toast.error("Failed to load existing transmission.");
+      }
+      return;
+    }
+    try {
+      const created = await api.createTransmission({
+        make: sug.make,
+        model: sug.model,
+        trans_type: sug.trans_type,
+        gear_count: sug.gear_count,
+        bellhousing_pattern: sug.bellhousing_pattern,
+        max_torque_capacity_lb_ft: sug.max_torque_capacity_lb_ft,
+        origin_year: sug.origin_year,
+        origin_make: sug.origin_make,
+        origin_model: sug.origin_model,
+        origin_variant: sug.origin_variant,
+      } as Parameters<typeof api.createTransmission>[0]);
+      setTransmission(created);
+      setAddTransOpen(false);
+      toast.success(`Created and selected: ${created.make} ${created.model}`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create transmission.",
+      );
+    }
+  };
+
+  const groups: TransmissionGroups | null = transGroupsData.data ?? null;
 
   return (
     <div className="space-y-6">
@@ -124,11 +264,9 @@ export function BuildCreateWizard() {
           <div key={label} className="flex items-center gap-2">
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium ${
-                i < step
+                i <= step
                   ? "bg-primary text-primary-foreground"
-                  : i === step
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
+                  : "bg-muted text-muted-foreground"
               }`}
             >
               {i < step ? <Check className="h-4 w-4" /> : i + 1}
@@ -140,9 +278,7 @@ export function BuildCreateWizard() {
             >
               {label}
             </span>
-            {i < STEPS.length - 1 && (
-              <Separator className="w-6" />
-            )}
+            {i < STEPS.length - 1 && <Separator className="w-6" />}
           </div>
         ))}
       </div>
@@ -168,7 +304,6 @@ export function BuildCreateWizard() {
                 onVehicleCreated={handleVinVehicleCreated}
                 existingVehicles={vehicleData.data?.vehicles}
               />
-
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <Separator className="w-full" />
@@ -179,7 +314,6 @@ export function BuildCreateWizard() {
                   </span>
                 </div>
               </div>
-
               <VehicleFilters
                 year={vYear}
                 make={vMake}
@@ -211,23 +345,78 @@ export function BuildCreateWizard() {
             </div>
           )}
 
-          {/* Step 1: Engine */}
+          {/* Step 1: Engine — Family → Variant drill-down */}
           {step === 1 && (
             <div className="space-y-4">
-              <EngineFilters
-                make={eMake}
-                hpRange={eHpRange}
-                onMakeChange={setEMake}
-                onHpRangeChange={setEHpRange}
-              />
-              {engineData.loading ? (
-                <Skeleton className="h-48 w-full" />
+              {!selectedFamily ? (
+                <>
+                  {/* Family picker */}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Filter by manufacturer…"
+                      value={eFamilyMake}
+                      onChange={(e) => setEFamilyMake(e.target.value)}
+                      className="max-w-xs"
+                    />
+                  </div>
+                  {familiesData.loading ? (
+                    <Skeleton className="h-48 w-full" />
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {(familiesData.data ?? []).map((fam) => (
+                        <EngineFamilyCard
+                          key={fam.family}
+                          family={fam}
+                          onClick={() => {
+                            if (fam.variants.length === 1) {
+                              // Auto-select if only one variant
+                              void (async () => {
+                                const eng = await api.getEngine(
+                                  fam.variants[0].id,
+                                );
+                                setEngine(eng);
+                              })();
+                            } else {
+                              setSelectedFamily(fam);
+                            }
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               ) : (
-                <EngineTable
-                  engines={engineData.data?.engines ?? []}
-                  onSelect={(e) => setEngine(e)}
-                />
+                <>
+                  {/* Variant picker */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedFamily(null)}
+                    className="mb-2 -ml-2"
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Back to families
+                  </Button>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {selectedFamily.make} — {selectedFamily.family} family
+                  </p>
+                  <div className="grid gap-2">
+                    {selectedFamily.variants.map((v) => (
+                      <EngineVariantCard
+                        key={v.id}
+                        variant={v}
+                        selected={engine?.id === v.id}
+                        onClick={async () => {
+                          const eng = await api.getEngine(v.id);
+                          setEngine(eng);
+                          setSelectedFamily(null);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
+
               {engine && (
                 <p className="text-sm">
                   Selected:{" "}
@@ -236,20 +425,97 @@ export function BuildCreateWizard() {
                   </Badge>
                 </p>
               )}
+
+              <Separator />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEngineQuery("");
+                  setEngineSuggestions([]);
+                  setEngineExistingId(null);
+                  setAddEngineOpen(true);
+                }}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add Different Engine
+              </Button>
             </div>
           )}
 
-          {/* Step 2: Transmission */}
+          {/* Step 2: Transmission — grouped */}
           {step === 2 && (
-            <div className="space-y-4">
-              {transData.loading ? (
-                <Skeleton className="h-48 w-full" />
-              ) : (
-                <TransmissionTable
-                  transmissions={transData.data?.transmissions ?? []}
-                  onSelect={(t) => setTransmission(t)}
-                />
+            <div className="space-y-5">
+              {transGroupsData.loading && <Skeleton className="h-48 w-full" />}
+
+              {groups && (
+                <>
+                  {/* Stock for engine */}
+                  {groups.stock_for_engine.length > 0 && (
+                    <TransmissionSection
+                      title="Stock with this engine"
+                      description={
+                        engine
+                          ? `These came factory with the ${engine.make} ${engine.model} in its donor vehicle.`
+                          : undefined
+                      }
+                      transmissions={groups.stock_for_engine}
+                      selected={transmission}
+                      onSelect={setTransmission}
+                    />
+                  )}
+
+                  {/* Chassis original */}
+                  {groups.chassis_original_label && (
+                    <div className="rounded-md border p-3 bg-muted/30">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                        Original chassis transmission
+                      </p>
+                      <p className="text-sm">
+                        The {vehicle?.year} {vehicle?.make} {vehicle?.model}{" "}
+                        came with a{" "}
+                        <span className="font-medium">
+                          {groups.chassis_original_label}
+                        </span>
+                        .
+                      </p>
+                      {groups.chassis_original.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {groups.chassis_original.map((t) => (
+                            <TransmissionCard
+                              key={t.id}
+                              trans={t}
+                              selected={transmission?.id === t.id}
+                              onSelect={setTransmission}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Other compatible */}
+                  {groups.other_compatible.length > 0 && (
+                    <TransmissionSection
+                      title="Other compatible transmissions"
+                      transmissions={groups.other_compatible}
+                      selected={transmission}
+                      onSelect={setTransmission}
+                      showTypeFilter
+                    />
+                  )}
+
+                  {groups.stock_for_engine.length === 0 &&
+                    groups.chassis_original.length === 0 &&
+                    groups.other_compatible.length === 0 && (
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        No compatible transmissions found. You can add one
+                        below.
+                      </p>
+                    )}
+                </>
               )}
+
               {transmission ? (
                 <p className="text-sm">
                   Selected:{" "}
@@ -262,6 +528,21 @@ export function BuildCreateWizard() {
                   No transmission selected (optional).
                 </p>
               )}
+
+              <Separator />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setTransQuery("");
+                  setTransSuggestions([]);
+                  setTransExistingId(null);
+                  setAddTransOpen(true);
+                }}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add Different Transmission
+              </Button>
             </div>
           )}
 
@@ -297,7 +578,13 @@ export function BuildCreateWizard() {
         <CardFooter className="flex justify-between">
           <Button
             variant="outline"
-            onClick={() => setStep((s) => s - 1)}
+            onClick={() => {
+              if (step === 1 && selectedFamily) {
+                setSelectedFamily(null);
+              } else {
+                setStep((s) => s - 1);
+              }
+            }}
             disabled={step === 0}
           >
             <ChevronLeft className="mr-1 h-4 w-4" />
@@ -305,10 +592,7 @@ export function BuildCreateWizard() {
           </Button>
 
           {step < 3 ? (
-            <Button
-              onClick={() => setStep((s) => s + 1)}
-              disabled={!canNext}
-            >
+            <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext}>
               {step === 2 ? "Review" : "Next"}
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
@@ -319,6 +603,362 @@ export function BuildCreateWizard() {
           )}
         </CardFooter>
       </Card>
+
+      {/* Add Engine Dialog */}
+      <Dialog open={addEngineOpen} onOpenChange={setAddEngineOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add a Different Engine</DialogTitle>
+            <DialogDescription>
+              Describe the engine you want — AI will identify it and suggest
+              specs.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder='e.g. "cummins 12 valve" or "k24 turbo"'
+                value={engineQuery}
+                onChange={(e) => setEngineQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleEngineSearch()}
+              />
+              <Button
+                onClick={handleEngineSearch}
+                disabled={engineQueryLoading}
+              >
+                {engineQueryLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Search"
+                )}
+              </Button>
+            </div>
+            {engineSuggestions.length > 0 && (
+              <div className="space-y-2">
+                {engineExistingId && (
+                  <p className="text-xs text-muted-foreground">
+                    This engine already exists in the database — selecting it
+                    will use the existing entry.
+                  </p>
+                )}
+                {engineSuggestions.map((sug, i) => (
+                  <div
+                    key={i}
+                    className="rounded-md border p-3 cursor-pointer hover:bg-accent transition-colors"
+                    onClick={() => handleSelectEngineSuggestion(sug)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">
+                        {sug.make} {sug.model} {sug.variant ?? ""}
+                      </span>
+                      <Badge
+                        variant={
+                          sug.confidence === "high" ? "default" : "secondary"
+                        }
+                        className="text-xs"
+                      >
+                        {sug.confidence}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {[
+                        sug.displacement_liters
+                          ? `${sug.displacement_liters}L`
+                          : null,
+                        sug.power_hp ? `${sug.power_hp} HP` : null,
+                        sug.torque_lb_ft ? `${sug.torque_lb_ft} lb-ft` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {sug.explanation && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {sug.explanation}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Transmission Dialog */}
+      <Dialog open={addTransOpen} onOpenChange={setAddTransOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add a Different Transmission</DialogTitle>
+            <DialogDescription>
+              Describe the transmission you want — AI will identify it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder='e.g. "t56 magnum" or "zf8 automatic"'
+                value={transQuery}
+                onChange={(e) => setTransQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleTransSearch()}
+              />
+              <Button onClick={handleTransSearch} disabled={transQueryLoading}>
+                {transQueryLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Search"
+                )}
+              </Button>
+            </div>
+            {transSuggestions.length > 0 && (
+              <div className="space-y-2">
+                {transExistingId && (
+                  <p className="text-xs text-muted-foreground">
+                    This transmission already exists — selecting it will use the
+                    existing entry.
+                  </p>
+                )}
+                {transSuggestions.map((sug, i) => (
+                  <div
+                    key={i}
+                    className="rounded-md border p-3 cursor-pointer hover:bg-accent transition-colors"
+                    onClick={() => handleSelectTransSuggestion(sug)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">
+                        {sug.make} {sug.model}
+                      </span>
+                      <Badge
+                        variant={
+                          sug.confidence === "high" ? "default" : "secondary"
+                        }
+                        className="text-xs"
+                      >
+                        {sug.confidence}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {[
+                        sug.trans_type,
+                        sug.gear_count ? `${sug.gear_count}-speed` : null,
+                        sug.max_torque_capacity_lb_ft
+                          ? `${sug.max_torque_capacity_lb_ft} lb-ft max`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {sug.explanation && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {sug.explanation}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function EngineFamilyCard({
+  family,
+  onClick,
+}: {
+  family: EngineFamily;
+  onClick: () => void;
+}) {
+  const hpValues = family.variants
+    .map((v) => v.power_hp)
+    .filter(Boolean) as number[];
+  const hpMin = hpValues.length ? Math.min(...hpValues) : null;
+  const hpMax = hpValues.length ? Math.max(...hpValues) : null;
+
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-lg border p-4 text-left hover:bg-accent hover:border-foreground/20 transition-colors w-full"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="font-semibold">{family.family}</p>
+          <p className="text-xs text-muted-foreground">{family.make}</p>
+        </div>
+        <Badge variant="secondary" className="shrink-0 text-xs">
+          {family.variants.length}{" "}
+          {family.variants.length === 1 ? "variant" : "variants"}
+        </Badge>
+      </div>
+      {hpMin !== null && hpMax !== null && (
+        <p className="text-xs text-muted-foreground mt-2">
+          {hpMin === hpMax ? `${hpMin} HP` : `${hpMin}–${hpMax} HP`}
+        </p>
+      )}
+    </button>
+  );
+}
+
+function EngineVariantCard({
+  variant,
+  selected,
+  onClick,
+}: {
+  variant: EngineFamilyVariant;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-lg border p-3 text-left transition-colors w-full flex items-center gap-3 ${
+        selected ? "border-primary bg-primary/5" : "hover:bg-accent"
+      }`}
+    >
+      <div
+        className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+          selected ? "border-primary bg-primary" : "border-muted-foreground"
+        }`}
+      >
+        {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm">{variant.model}</p>
+        <p className="text-xs text-muted-foreground">
+          {[
+            variant.variant,
+            variant.displacement_liters
+              ? `${variant.displacement_liters}L`
+              : null,
+            variant.power_hp ? `${variant.power_hp} HP` : null,
+            variant.torque_lb_ft ? `${variant.torque_lb_ft} lb-ft` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function TransmissionCard({
+  trans,
+  selected,
+  onSelect,
+}: {
+  trans: Transmission;
+  selected: boolean;
+  onSelect: (t: Transmission) => void;
+}) {
+  return (
+    <button
+      onClick={() => onSelect(trans)}
+      className={`rounded-lg border p-3 text-left transition-colors w-full flex items-center gap-3 ${
+        selected ? "border-primary bg-primary/5" : "hover:bg-accent"
+      }`}
+    >
+      <div
+        className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+          selected ? "border-primary bg-primary" : "border-muted-foreground"
+        }`}
+      >
+        {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm">
+            {trans.make} {trans.model}
+          </span>
+          {trans.trans_type && (
+            <Badge variant="outline" className="text-xs">
+              {trans.trans_type}
+            </Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {[
+            trans.gear_count ? `${trans.gear_count}-speed` : null,
+            trans.max_torque_capacity_lb_ft
+              ? `${trans.max_torque_capacity_lb_ft} lb-ft max`
+              : null,
+            trans.weight ? `${trans.weight} lbs` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function TransmissionSection({
+  title,
+  description,
+  transmissions,
+  selected,
+  onSelect,
+  showTypeFilter,
+}: {
+  title: string;
+  description?: string;
+  transmissions: Transmission[];
+  selected: Transmission | null;
+  onSelect: (t: Transmission) => void;
+  showTypeFilter?: boolean;
+}) {
+  const [typeFilter, setTypeFilter] = useState<"all" | "Manual" | "Automatic">(
+    "all",
+  );
+
+  const hasManual = transmissions.some((t) => t.trans_type === "Manual");
+  const hasAuto = transmissions.some((t) => t.trans_type === "Automatic");
+  const showFilter = showTypeFilter && hasManual && hasAuto;
+
+  const filtered =
+    typeFilter === "all"
+      ? transmissions
+      : transmissions.filter((t) => t.trans_type === typeFilter);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <p className="text-sm font-medium">{title}</p>
+          {description && (
+            <p className="text-xs text-muted-foreground">{description}</p>
+          )}
+        </div>
+        {showFilter && (
+          <div className="flex gap-1">
+            {(["all", "Manual", "Automatic"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setTypeFilter(f)}
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                  typeFilter === f
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "hover:bg-accent"
+                }`}
+              >
+                {f === "all" ? "All" : f}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="space-y-1">
+        {filtered.map((t) => (
+          <TransmissionCard
+            key={t.id}
+            trans={t}
+            selected={selected?.id === t.id}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
     </div>
   );
 }

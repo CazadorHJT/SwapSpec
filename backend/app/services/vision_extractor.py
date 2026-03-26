@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Section path substrings that indicate visual-only content worth vision-extracting
 VISION_CATEGORIES = [
+    # Diagrams and schematics
     "electrical diagram",
     "electrical diagrams",
     "system diagram",
@@ -25,6 +26,20 @@ VISION_CATEGORIES = [
     "schematics",
     "routing diagram",
     "routing diagrams",
+    # Spec tables — often image-only pages in charm.li manuals
+    "service specification",
+    "service specifications",
+    "torque specification",
+    "torque specifications",
+    "valve clearance",
+    "standard value",
+    "standard values",
+    "maintenance data",
+    "standard specification",
+    "standard specifications",
+    "inspection data",
+    "tightening torque",
+    "tightening torques",
 ]
 
 _MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB — skip larger images

@@ -112,6 +112,9 @@ Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
 - Builds reference one Vehicle + one Engine + optional Transmission, and have many ChatMessages
 - Transmissions match Engines via bellhousing pattern strings
 - ChatMessages store per-build advisor conversation history
+- Engines have `engine_family` (e.g. "LS", "2JZ") for drill-down wizard UX and `origin_variant` (e.g. "2JZ-GTE") for charm.li variant-specific manual downloads
+- Transmissions have `origin_variant` for the same purpose
+- Vehicles have `stock_transmission_model` (string label) for the "chassis original" grouping in the build wizard
 
 **Data provenance**: Engine, Vehicle, and Transmission models track where each spec value came from via a `data_sources` JSON field (maps field name → `"manufacturer"` | `"carquery_api"` | `"nhtsa_api"` | `"user_contributed"`) and a `data_source_notes` text field. User-submitted fields are auto-tagged `"user_contributed"`. Auto-enrichment fills null fields from APIs on entity creation.
 
@@ -127,14 +130,14 @@ Expo app (mobile/)──→ FastAPI (backend/) ──↗       ↑
 | StorageService | `app/services/storage.py` | Supabase Storage uploads (buckets: `uploads`, `meshes`). Lazily instantiated in routers |
 | VINDecoderService | `app/services/vin_decoder.py` | NHTSA API VIN decoding |
 | get_supabase_client | `app/services/supabase_client.py` | Singleton Supabase client (LRU cached) for auth + storage |
-| CharmDownloader | `app/services/charm_downloader.py` | Fetches charm.li year-index page, fuzzy-matches model with `difflib`, streams ZIP download |
+| CharmDownloader | `app/services/charm_downloader.py` | Fetches charm.li year-index page, fuzzy-matches model with `difflib`, streams ZIP download. Accepts `variant_hint` (+3 score boost) to pick the correct engine variant (e.g. 2JZ-GTE vs 2JZ-GE). |
 | ManualExtractor | `app/services/manual_extractor.py` | Unzips and URL-decodes all folder/file names (pure stdlib) |
 | GapAnalyzer | `app/services/gap_analyzer.py` | Checks 10 critical spec paths in an extracted manual directory; returns `GapReport(present, missing, broken)` |
 | GapFiller | `app/services/gap_filler.py` | Calls Claude to generate spec HTML for missing sections; skips gracefully when `ANTHROPIC_API_KEY` unset |
 | RAGIndexer | `app/services/rag_indexer.py` | Walks HTML files, upserts scoped `ManualChunk` rows. Source precedence via `source_priority` column (user_uploaded=5 > charm_li_vision=4 > charm_li_image=3 > charm_li=2 > gap_filled_ai=1). Image-only pages routed to vision/storage/stub paths. |
-| ManualIngestor | `app/services/manual_ingestor.py` | Orchestrates full pipeline via FastAPI `BackgroundTasks`. Job state persisted in `ingest_jobs` PostgreSQL table (not in-memory). Takes `session_factory` callable — background tasks open their own DB sessions. |
+| ManualIngestor | `app/services/manual_ingestor.py` | Orchestrates full pipeline via FastAPI `BackgroundTasks`. Job state persisted in `ingest_jobs` PostgreSQL table (not in-memory). Takes `session_factory` callable — background tasks open their own DB sessions. Accepts `variant_hint` passed from `builds.py` via `engine.origin_variant` / `transmission.origin_variant`. |
 | ManualSearch | `app/services/manual_search.py` | Shared FTS helper used by advisor and manuals router. PostgreSQL `to_tsvector` + `plainto_tsquery`; falls back to ILIKE on SQLite for tests. |
-| VisionExtractor | `app/services/vision_extractor.py` | Uses Claude Haiku vision to extract text from diagram/schematic pages. Skips images >5 MB. Graceful no-op when `ANTHROPIC_API_KEY` unset. |
+| VisionExtractor | `app/services/vision_extractor.py` | Uses Claude Haiku vision to extract text from diagram/schematic pages AND spec-table pages (torque specs, valve clearance, service specifications, etc.). `VISION_CATEGORIES` list controls which section paths trigger vision. Skips images >5 MB. Graceful no-op when `ANTHROPIC_API_KEY` unset. |
 | PDFIngestor | `app/services/pdf_ingestor.py` | Extracts page text from uploaded PDFs via `pypdf`; upserts as `ManualChunk` rows with `data_source="user_uploaded"`. |
 
 ### Web Frontend (Next.js + shadcn/ui + React Three Fiber)

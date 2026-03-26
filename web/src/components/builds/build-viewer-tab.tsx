@@ -5,8 +5,7 @@ import type { BuildExport } from "@/lib/types";
 import { Box } from "lucide-react";
 
 const ModelViewer = dynamic(
-  () =>
-    import("@/components/viewer/model-viewer").then((m) => m.ModelViewer),
+  () => import("@/components/viewer/model-viewer").then((m) => m.ModelViewer),
   { ssr: false },
 );
 
@@ -17,7 +16,10 @@ export function BuildViewerTab({ data }: { data: BuildExport }) {
   // Vehicle bay scan mesh would come from the full vehicle object
   // but the export only has summary fields — use build-level data if present
   // For now we check engine mesh
-  if (data.build.engine_position && typeof data.build.engine_position === "object") {
+  if (
+    data.build.engine_position &&
+    typeof data.build.engine_position === "object"
+  ) {
     // engine_position might contain mesh data
   }
 

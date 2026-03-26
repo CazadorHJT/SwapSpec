@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class TransmissionBase(BaseModel):
@@ -29,6 +29,9 @@ class TransmissionBase(BaseModel):
     data_sources: Optional[dict] = None
     data_source_notes: Optional[str] = None
 
+    # Variant hint for charm.li matching
+    origin_variant: Optional[str] = None
+
     # Donor vehicle — which chassis manual contains docs for this transmission
     origin_year:  Optional[int] = None
     origin_make:  Optional[str] = None
@@ -49,3 +52,30 @@ class TransmissionResponse(TransmissionBase):
 class TransmissionList(BaseModel):
     transmissions: list[TransmissionResponse]
     total: int
+
+
+class TransmissionGroups(BaseModel):
+    stock_for_engine: List[TransmissionResponse]
+    chassis_original_label: Optional[str] = None
+    chassis_original: List[TransmissionResponse]
+    other_compatible: List[TransmissionResponse]
+
+
+class TransmissionIdentifySuggestion(BaseModel):
+    make: str
+    model: str
+    trans_type: Optional[str] = None
+    gear_count: Optional[int] = None
+    bellhousing_pattern: Optional[str] = None
+    max_torque_capacity_lb_ft: Optional[int] = None
+    origin_year: Optional[int] = None
+    origin_make: Optional[str] = None
+    origin_model: Optional[str] = None
+    origin_variant: Optional[str] = None
+    confidence: str = "medium"
+    explanation: Optional[str] = None
+
+
+class TransmissionIdentifyResponse(BaseModel):
+    suggestions: List[TransmissionIdentifySuggestion]
+    existing_match_id: Optional[str] = None

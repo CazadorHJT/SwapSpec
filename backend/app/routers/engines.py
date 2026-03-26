@@ -1,13 +1,21 @@
+import json
+import logging
+import os
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import Optional
+from typing import Optional, List
 from app.database import get_db
 from app.models.engine import Engine
 from app.models.user import User
-from app.schemas.engine import EngineCreate, EngineResponse, EngineList
+from app.schemas.engine import (
+    EngineCreate, EngineResponse, EngineList,
+    EngineFamily, EngineFamilyVariant, EngineIdentifyResponse, EngineIdentifySuggestion,
+)
 from app.utils.auth import get_current_user
 from app.services.spec_lookup import SpecLookupService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/engines", tags=["Engines"])
 spec_lookup = SpecLookupService()
@@ -89,6 +97,106 @@ async def create_engine(
         pass  # enrichment is best-effort
 
     return engine
+
+
+@router.get("/families", response_model=List[EngineFamily])
+async def list_engine_families(
+    make: Optional[str] = Query(None, description="Filter by engine make"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all engines grouped by engine_family for drill-down selection."""
+    query = select(Engine)
+    if make:
+        query = query.where(Engine.make.ilike(f"%{make}%"))
+
+    result = await db.execute(query.order_by(Engine.make, Engine.model))
+    engines = result.scalars().all()
+
+    # Group by engine_family (fall back to model for ungrouped)
+    family_map: dict[str, dict] = {}
+    for eng in engines:
+        family_key = eng.engine_family or eng.model
+        make_key = eng.make
+        if family_key not in family_map:
+            family_map[family_key] = {"family": family_key, "make": make_key, "variants": []}
+        family_map[family_key]["variants"].append(EngineFamilyVariant(
+            id=eng.id,
+            model=eng.model,
+            variant=eng.variant,
+            power_hp=eng.power_hp,
+            torque_lb_ft=eng.torque_lb_ft,
+            displacement_liters=eng.displacement_liters,
+        ))
+
+    return [EngineFamily(**v) for v in family_map.values()]
+
+
+@router.post("/identify", response_model=EngineIdentifyResponse)
+async def identify_engine(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """AI-powered engine identification from a free-text query."""
+    query_text = payload.get("query", "").strip()
+    if not query_text:
+        raise HTTPException(status_code=400, detail="query is required")
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    suggestions: List[EngineIdentifySuggestion] = []
+
+    if api_key:
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=api_key)
+            prompt = (
+                f'Identify the engine(s) described by: "{query_text}"\n\n'
+                "Return a JSON array of 1-3 engine objects with these fields (all optional except make/model):\n"
+                "make, model, variant, engine_family, displacement_liters, power_hp, torque_lb_ft,\n"
+                "origin_year, origin_make, origin_model, origin_variant, confidence (high/medium/low), explanation.\n\n"
+                "Respond ONLY with valid JSON array, no markdown."
+            )
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=512,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = msg.content[0].text.strip()
+            # Strip markdown code fences if present
+            if raw.startswith("```"):
+                raw = "\n".join(raw.split("\n")[1:])
+                raw = raw.rsplit("```", 1)[0].strip()
+            data = json.loads(raw)
+            for item in data[:3]:
+                suggestions.append(EngineIdentifySuggestion(**item))
+        except Exception as exc:
+            logger.warning(f"Engine identify AI call failed: {exc}")
+
+    if not suggestions:
+        suggestions.append(EngineIdentifySuggestion(
+            make="Unknown",
+            model=query_text,
+            confidence="low",
+            explanation="Could not identify engine. Please provide make and model manually.",
+        ))
+
+    # Check if any suggestion matches an existing engine
+    existing_match_id = None
+    for sug in suggestions:
+        if sug.confidence in ("high", "medium"):
+            result = await db.execute(
+                select(Engine).where(
+                    Engine.make.ilike(sug.make),
+                    Engine.model.ilike(sug.model),
+                )
+            )
+            match = result.scalar_one_or_none()
+            if match:
+                existing_match_id = match.id
+                break
+
+    return EngineIdentifyResponse(suggestions=suggestions, existing_match_id=existing_match_id)
 
 
 @router.post("/{engine_id}/enrich", response_model=EngineResponse)

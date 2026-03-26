@@ -65,6 +65,10 @@ class Engine(Base):
     data_sources: Mapped[dict] = mapped_column(JSON, nullable=True)
     data_source_notes: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Engine family grouping and variant hint for charm.li
+    engine_family: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    origin_variant: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
     # Donor vehicle — which chassis manual contains docs for this engine
     origin_year:  Mapped[Optional[int]] = mapped_column(Integer,     nullable=True)
     origin_make:  Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

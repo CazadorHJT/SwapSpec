@@ -23,6 +23,8 @@ async def seed_engines():
             make="Chevrolet",
             model="LS3",
             variant="6.2L",
+            engine_family="LS",
+            origin_variant="LS3",
             origin_year=2010,
             origin_make="Chevrolet",
             origin_model="Camaro",
@@ -78,6 +80,8 @@ async def seed_engines():
             make="Chevrolet",
             model="LS1",
             variant="5.7L",
+            engine_family="LS",
+            origin_variant="LS1",
             origin_year=1998,
             origin_make="Chevrolet",
             origin_model="Camaro",
@@ -133,6 +137,8 @@ async def seed_engines():
             make="Ford",
             model="Coyote",
             variant="5.0L Gen 3",
+            engine_family="Coyote",
+            origin_variant="Mustang GT",
             origin_year=2018,
             origin_make="Ford",
             origin_model="Mustang",
@@ -188,6 +194,8 @@ async def seed_engines():
             make="Toyota",
             model="2JZ-GTE",
             variant="3.0L Twin Turbo",
+            engine_family="2JZ",
+            origin_variant="2JZ-GTE",
             origin_year=1993,
             origin_make="Toyota",
             origin_model="Supra",
@@ -243,6 +251,8 @@ async def seed_engines():
             make="Nissan",
             model="RB26DETT",
             variant="2.6L Twin Turbo",
+            engine_family="RB",
+            origin_variant="RB26DETT",
             origin_year=1999,
             origin_make="Nissan",
             origin_model="Skyline",
@@ -298,6 +308,8 @@ async def seed_engines():
             make="Dodge",
             model="HEMI",
             variant="6.4L 392",
+            engine_family="HEMI",
+            origin_variant="SRT-8",
             origin_year=2012,
             origin_make="Dodge",
             origin_model="Challenger",
@@ -359,6 +371,7 @@ async def seed_transmissions():
         Transmission(
             make="Tremec",
             model="T56 Magnum",
+            origin_variant="Camaro",
             origin_year=2002,
             origin_make="Chevrolet",
             origin_model="Camaro",
@@ -389,6 +402,7 @@ async def seed_transmissions():
         Transmission(
             make="Tremec",
             model="TKX",
+            origin_variant="Camaro",
             origin_year=2019,
             origin_make="Chevrolet",
             origin_model="Camaro",
@@ -419,6 +433,7 @@ async def seed_transmissions():
         Transmission(
             make="Tremec",
             model="T56 Magnum-F",
+            origin_variant="Mustang GT",
             origin_year=2018,
             origin_make="Ford",
             origin_model="Mustang",
@@ -449,6 +464,7 @@ async def seed_transmissions():
         Transmission(
             make="GM",
             model="4L60E",
+            origin_variant="Silverado",
             origin_year=1999,
             origin_make="Chevrolet",
             origin_model="Silverado",
@@ -479,6 +495,7 @@ async def seed_transmissions():
         Transmission(
             make="GM",
             model="4L80E",
+            origin_variant="Silverado",
             origin_year=1999,
             origin_make="Chevrolet",
             origin_model="Silverado",
@@ -509,6 +526,7 @@ async def seed_transmissions():
         Transmission(
             make="Toyota",
             model="R154",
+            origin_variant="Supra",
             origin_year=1993,
             origin_make="Toyota",
             origin_model="Supra",
@@ -539,6 +557,7 @@ async def seed_transmissions():
         Transmission(
             make="Nissan",
             model="CD009",
+            origin_variant="350Z",
             origin_year=2004,
             origin_make="Nissan",
             origin_model="350Z",
@@ -546,7 +565,7 @@ async def seed_transmissions():
             dimensions_w=13.5,
             dimensions_l=25.0,
             weight=95,
-            bellhousing_pattern="Nissan VQ/VH",
+            bellhousing_pattern="Nissan RB",
             trans_type="Manual",
             gear_count=6,
             gear_ratios={"1": 3.79, "2": 2.32, "3": 1.62, "4": 1.27, "5": 1.00, "6": 0.79, "R": 3.38},
@@ -578,6 +597,7 @@ async def seed_vehicles():
             make="Chevrolet",
             model="Camaro",
             trim="SS",
+            stock_transmission_model="Muncie M21 4-speed",
             vin_pattern="124379",
             quality_status=QualityStatus.approved,
             drive_type="RWD",
@@ -603,6 +623,7 @@ async def seed_vehicles():
             make="Ford",
             model="Mustang",
             trim="Fastback",
+            stock_transmission_model="Ford C4 3-speed auto",
             vin_pattern="7F02C",
             quality_status=QualityStatus.approved,
             drive_type="RWD",
@@ -628,6 +649,7 @@ async def seed_vehicles():
             make="Dodge",
             model="Challenger",
             trim="R/T",
+            stock_transmission_model="TorqueFlite A727 3-speed",
             vin_pattern="JH23R0B",
             quality_status=QualityStatus.approved,
             drive_type="RWD",
@@ -653,6 +675,7 @@ async def seed_vehicles():
             make="Mazda",
             model="Miata",
             trim="NA",
+            stock_transmission_model="Mazda M15M-D 5-speed",
             vin_pattern="JM1NA35",
             quality_status=QualityStatus.approved,
             drive_type="RWD",
@@ -680,6 +703,7 @@ async def seed_vehicles():
             make="Nissan",
             model="240SX",
             trim="SE",
+            stock_transmission_model="Nissan FS5W71C 5-speed",
             vin_pattern="JN1MS34",
             quality_status=QualityStatus.approved,
             drive_type="RWD",
@@ -705,6 +729,7 @@ async def seed_vehicles():
             make="Toyota",
             model="Supra",
             trim="Turbo",
+            stock_transmission_model="Toyota V160 6-speed",
             vin_pattern="JT2JA82",
             quality_status=QualityStatus.approved,
             drive_type="RWD",
@@ -730,6 +755,7 @@ async def seed_vehicles():
             make="Ford",
             model="Mustang",
             trim="GT",
+            stock_transmission_model="Tremec T-3650 5-speed",
             vin_pattern="1ZVFT82H",
             quality_status=QualityStatus.approved,
             drive_type="RWD",
@@ -776,12 +802,22 @@ async def main():
             if existing is None:
                 session.add(engine)
                 added_engines += 1
-            elif existing.origin_year is None and engine.origin_year is not None:
-                # Backfill origin fields on already-seeded engines
-                existing.origin_year = engine.origin_year
-                existing.origin_make = engine.origin_make
-                existing.origin_model = engine.origin_model
-                session.add(existing)
+            else:
+                # Backfill new fields on already-seeded engines
+                changed = False
+                if existing.origin_year is None and engine.origin_year is not None:
+                    existing.origin_year = engine.origin_year
+                    existing.origin_make = engine.origin_make
+                    existing.origin_model = engine.origin_model
+                    changed = True
+                if existing.engine_family is None and engine.engine_family is not None:
+                    existing.engine_family = engine.engine_family
+                    changed = True
+                if existing.origin_variant is None and engine.origin_variant is not None:
+                    existing.origin_variant = engine.origin_variant
+                    changed = True
+                if changed:
+                    session.add(existing)
 
         # Add transmissions (skip duplicates by make+model); patch origin fields on existing
         print("Seeding transmissions...")
@@ -798,12 +834,22 @@ async def main():
             if existing is None:
                 session.add(trans)
                 added_trans += 1
-            elif existing.origin_year is None and trans.origin_year is not None:
-                # Backfill origin fields on already-seeded transmissions
-                existing.origin_year = trans.origin_year
-                existing.origin_make = trans.origin_make
-                existing.origin_model = trans.origin_model
-                session.add(existing)
+            else:
+                # Backfill new fields on already-seeded transmissions
+                changed = False
+                if existing.origin_year is None and trans.origin_year is not None:
+                    existing.origin_year = trans.origin_year
+                    existing.origin_make = trans.origin_make
+                    existing.origin_model = trans.origin_model
+                    changed = True
+                if existing.origin_variant is None and trans.origin_variant is not None:
+                    existing.origin_variant = trans.origin_variant
+                    changed = True
+                if existing.bellhousing_pattern != trans.bellhousing_pattern and trans.bellhousing_pattern:
+                    existing.bellhousing_pattern = trans.bellhousing_pattern
+                    changed = True
+                if changed:
+                    session.add(existing)
 
         # Add vehicles (skip duplicates by year+make+model); backfill new specifics fields
         print("Seeding vehicles...")
@@ -821,13 +867,20 @@ async def main():
             if existing is None:
                 session.add(vehicle)
                 added_vehicles += 1
-            elif existing.drive_type is None and vehicle.drive_type is not None:
-                existing.drive_type = vehicle.drive_type
-                existing.body_style = vehicle.body_style
-                existing.doors = vehicle.doors
-                existing.engine_displacement_l = vehicle.engine_displacement_l
-                existing.engine_cylinders = vehicle.engine_cylinders
-                session.add(existing)
+            else:
+                changed = False
+                if existing.drive_type is None and vehicle.drive_type is not None:
+                    existing.drive_type = vehicle.drive_type
+                    existing.body_style = vehicle.body_style
+                    existing.doors = vehicle.doors
+                    existing.engine_displacement_l = vehicle.engine_displacement_l
+                    existing.engine_cylinders = vehicle.engine_cylinders
+                    changed = True
+                if existing.stock_transmission_model is None and vehicle.stock_transmission_model is not None:
+                    existing.stock_transmission_model = vehicle.stock_transmission_model
+                    changed = True
+                if changed:
+                    session.add(existing)
 
         await session.commit()
         print(f"Seeded {added_engines} engines, {added_trans} transmissions, {added_vehicles} vehicles")

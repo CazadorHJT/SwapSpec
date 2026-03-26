@@ -11,9 +11,13 @@ import type {
   EngineList,
   Engine,
   EngineCreate,
+  EngineFamily,
+  EngineIdentifyResponse,
   TransmissionList,
   Transmission,
   TransmissionCreate,
+  TransmissionGroups,
+  TransmissionIdentifyResponse,
   BuildList,
   Build,
   BuildCreate,
@@ -53,10 +57,7 @@ export async function clearStoredToken(): Promise<void> {
   return SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getStoredToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -168,6 +169,24 @@ export async function createEngine(data: EngineCreate): Promise<Engine> {
   });
 }
 
+export async function getEngineFamilies(
+  make?: string,
+): Promise<EngineFamily[]> {
+  const sp = new URLSearchParams();
+  if (make) sp.set("make", make);
+  const qs = sp.toString();
+  return request<EngineFamily[]>(`/api/engines/families${qs ? `?${qs}` : ""}`);
+}
+
+export async function identifyEngine(
+  query: string,
+): Promise<EngineIdentifyResponse> {
+  return request<EngineIdentifyResponse>("/api/engines/identify", {
+    method: "POST",
+    body: JSON.stringify({ query }),
+  });
+}
+
 // ── Transmissions ────────────────────────────────────
 
 export async function getTransmissions(params?: {
@@ -178,7 +197,8 @@ export async function getTransmissions(params?: {
 }): Promise<TransmissionList> {
   const sp = new URLSearchParams();
   if (params?.make) sp.set("make", params.make);
-  if (params?.bellhousing_pattern) sp.set("bellhousing_pattern", params.bellhousing_pattern);
+  if (params?.bellhousing_pattern)
+    sp.set("bellhousing_pattern", params.bellhousing_pattern);
   if (params?.skip) sp.set("skip", String(params.skip));
   if (params?.limit) sp.set("limit", String(params.limit));
   const qs = sp.toString();
@@ -201,6 +221,26 @@ export async function createTransmission(
   return request<Transmission>("/api/transmissions", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export async function getTransmissionsForBuild(
+  engineId: string,
+  vehicleId?: string,
+): Promise<TransmissionGroups> {
+  const sp = new URLSearchParams({ engine_id: engineId });
+  if (vehicleId) sp.set("vehicle_id", vehicleId);
+  return request<TransmissionGroups>(
+    `/api/transmissions/for-build?${sp.toString()}`,
+  );
+}
+
+export async function identifyTransmission(
+  query: string,
+): Promise<TransmissionIdentifyResponse> {
+  return request<TransmissionIdentifyResponse>("/api/transmissions/identify", {
+    method: "POST",
+    body: JSON.stringify({ query }),
   });
 }
 
@@ -228,7 +268,10 @@ export async function createBuild(data: BuildCreate): Promise<Build> {
   });
 }
 
-export async function updateBuild(id: string, data: BuildUpdate): Promise<Build> {
+export async function updateBuild(
+  id: string,
+  data: BuildUpdate,
+): Promise<Build> {
   return request<Build>(`/api/builds/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),

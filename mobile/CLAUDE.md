@@ -30,7 +30,7 @@ app/
     dashboard/index.tsx
     builds/
       index.tsx                # builds list
-      new.tsx                  # 4-step creation wizard
+      new.tsx                  # 4-step creation wizard (engine family drill-down, grouped transmissions, AI identify modals)
       [buildId]/index.tsx      # build detail: Overview + Advisor tabs
     vehicles/index.tsx
     engines/index.tsx
@@ -39,13 +39,13 @@ app/
 
 ### Key Files
 
-| File | Purpose |
-|------|---------|
-| `lib/types.ts` | Direct copy of `web/src/lib/types.ts` — keep in sync when backend schemas change |
-| `lib/api-client.ts` | Typed fetch wrapper. Uses `expo-secure-store` for token storage instead of `localStorage`. File uploads use `{ uri, name, type }` RN format |
-| `lib/auth-context.tsx` | Auth state + `useAuth()` hook. Token stored via `SecureStore`. Logout calls `router.replace('/(auth)/login')` |
-| `lib/theme.ts` | Single source of truth for colors, spacing, radius, fontSize. Import from here — no inline magic numbers |
-| `hooks/use-api.ts` | Generic `useApi<T>(fetcher, deps)` → `{ data, loading, error, refetch }` |
+| File                   | Purpose                                                                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/types.ts`         | Direct copy of `web/src/lib/types.ts` — keep in sync when backend schemas change                                                            |
+| `lib/api-client.ts`    | Typed fetch wrapper. Uses `expo-secure-store` for token storage instead of `localStorage`. File uploads use `{ uri, name, type }` RN format |
+| `lib/auth-context.tsx` | Auth state + `useAuth()` hook. Token stored via `SecureStore`. Logout calls `router.replace('/(auth)/login')`                               |
+| `lib/theme.ts`         | Single source of truth for colors, spacing, radius, fontSize. Import from here — no inline magic numbers                                    |
+| `hooks/use-api.ts`     | Generic `useApi<T>(fetcher, deps)` → `{ data, loading, error, refetch }`                                                                    |
 
 ### Auth Guard
 

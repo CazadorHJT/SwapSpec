@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class EngineBase(BaseModel):
@@ -55,6 +55,10 @@ class EngineBase(BaseModel):
     data_sources: Optional[dict] = None
     data_source_notes: Optional[str] = None
 
+    # Engine family grouping and variant hint for charm.li
+    engine_family: Optional[str] = None
+    origin_variant: Optional[str] = None
+
     # Donor vehicle — which chassis manual contains docs for this engine
     origin_year:  Optional[int] = None
     origin_make:  Optional[str] = None
@@ -75,3 +79,39 @@ class EngineResponse(EngineBase):
 class EngineList(BaseModel):
     engines: list[EngineResponse]
     total: int
+
+
+class EngineFamilyVariant(BaseModel):
+    id: str
+    model: str
+    variant: Optional[str] = None
+    power_hp: Optional[int] = None
+    torque_lb_ft: Optional[int] = None
+    displacement_liters: Optional[float] = None
+
+
+class EngineFamily(BaseModel):
+    family: str
+    make: str
+    variants: List[EngineFamilyVariant]
+
+
+class EngineIdentifySuggestion(BaseModel):
+    make: str
+    model: str
+    variant: Optional[str] = None
+    engine_family: Optional[str] = None
+    displacement_liters: Optional[float] = None
+    power_hp: Optional[int] = None
+    torque_lb_ft: Optional[int] = None
+    origin_year: Optional[int] = None
+    origin_make: Optional[str] = None
+    origin_model: Optional[str] = None
+    origin_variant: Optional[str] = None
+    confidence: str = "medium"
+    explanation: Optional[str] = None
+
+
+class EngineIdentifyResponse(BaseModel):
+    suggestions: List[EngineIdentifySuggestion]
+    existing_match_id: Optional[str] = None

@@ -39,6 +39,9 @@ class Transmission(Base):
     data_sources: Mapped[dict] = mapped_column(JSON, nullable=True)
     data_source_notes: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Variant hint for charm.li matching
+    origin_variant: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
     # Donor vehicle — which chassis manual contains docs for this transmission
     origin_year:  Mapped[Optional[int]] = mapped_column(Integer,     nullable=True)
     origin_make:  Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

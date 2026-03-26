@@ -63,7 +63,7 @@ JWT is stored in `localStorage` under `swapspec_token`. `AuthContext` (`lib/auth
 
 **Build detail page** (`builds/[buildId]/page.tsx`): Three tabs — Overview (specs with data source badges + PDF export), 3D Viewer (mesh rendering), Advisor (AI chat with markdown via react-markdown + remark-gfm).
 
-**Build creation wizard** (`components/builds/build-create-wizard.tsx`): Four-step wizard (Vehicle → Engine → Transmission → Review). Step 0 includes a VIN decoder above vehicle filters. Each step uses domain-specific `useApi` calls.
+**Build creation wizard** (`components/builds/build-create-wizard.tsx`): Four-step wizard (Vehicle → Engine → Transmission → Review). Step 0 includes a VIN decoder above vehicle filters. Engine step: family drill-down (pick family → pick variant; auto-selects if only 1 variant). Transmission step: 3 groups — "Stock with this engine" (shared donor vehicle), "Original chassis" (info label from `vehicle.stock_transmission_model`), "Other compatible" (bellhousing match). Both steps have an "Add Different" dialog powered by `POST /api/engines/identify` / `POST /api/transmissions/identify`. Hooks: `useEngineFamilies` (`GET /api/engines/families`), `useTransmissionsForBuild` (`GET /api/transmissions/for-build`).
 
 **VIN decoder** (`components/vehicles/vin-decoder.tsx`): Decodes VINs via the backend NHTSA endpoint. Optionally accepts `onVehicleCreated` and `existingVehicles` props to enable creating vehicles from decoded results with duplicate detection.
 

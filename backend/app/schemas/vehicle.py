@@ -32,6 +32,9 @@ class VehicleBase(BaseModel):
     steering_clearance_notes: Optional[str] = None
     stock_ground_clearance_in: Optional[float] = None
 
+    # Stock transmission label for chassis-original grouping
+    stock_transmission_model: Optional[str] = None
+
     # Data provenance
     data_sources: Optional[dict] = None
     data_source_notes: Optional[str] = None
