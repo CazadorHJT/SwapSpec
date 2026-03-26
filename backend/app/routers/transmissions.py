@@ -50,19 +50,6 @@ async def list_transmissions(
     return TransmissionList(transmissions=transmissions, total=total)
 
 
-@router.get("/{transmission_id}", response_model=TransmissionResponse)
-async def get_transmission(transmission_id: str, db: AsyncSession = Depends(get_db)):
-    """Get transmission details by ID."""
-    result = await db.execute(select(Transmission).where(Transmission.id == transmission_id))
-    transmission = result.scalar_one_or_none()
-    if not transmission:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Transmission not found",
-        )
-    return transmission
-
-
 @router.get("/compatible/{engine_id}", response_model=TransmissionList)
 async def get_compatible_transmissions(
     engine_id: str,
@@ -259,6 +246,19 @@ async def identify_transmission(
                 break
 
     return TransmissionIdentifyResponse(suggestions=suggestions, existing_match_id=existing_match_id)
+
+
+@router.get("/{transmission_id}", response_model=TransmissionResponse)
+async def get_transmission(transmission_id: str, db: AsyncSession = Depends(get_db)):
+    """Get transmission details by ID."""
+    result = await db.execute(select(Transmission).where(Transmission.id == transmission_id))
+    transmission = result.scalar_one_or_none()
+    if not transmission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transmission not found",
+        )
+    return transmission
 
 
 @router.post("", response_model=TransmissionResponse, status_code=status.HTTP_201_CREATED)

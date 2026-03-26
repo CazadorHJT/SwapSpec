@@ -53,52 +53,6 @@ async def list_engines(
     return EngineList(engines=engines, total=total)
 
 
-@router.get("/{engine_id}", response_model=EngineResponse)
-async def get_engine(engine_id: str, db: AsyncSession = Depends(get_db)):
-    """Get engine details by ID."""
-    result = await db.execute(select(Engine).where(Engine.id == engine_id))
-    engine = result.scalar_one_or_none()
-    if not engine:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Engine not found",
-        )
-    return engine
-
-
-@router.post("", response_model=EngineResponse, status_code=status.HTTP_201_CREATED)
-async def create_engine(
-    engine_data: EngineCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Create a new engine entry (requires authentication).
-    Auto-enriches with API data for any null spec fields."""
-    # Tag user-provided fields
-    user_fields = {
-        k: v for k, v in engine_data.model_dump(exclude_unset=True).items()
-        if v is not None and k not in ("make", "model", "variant", "mesh_file_url", "mount_points",
-                                        "data_sources", "data_source_notes")
-    }
-    initial_sources = {field: "user_contributed" for field in user_fields}
-
-    engine = Engine(**engine_data.model_dump())
-    engine.data_sources = initial_sources if initial_sources else None
-    db.add(engine)
-    await db.commit()
-    await db.refresh(engine)
-
-    # Auto-enrich from APIs (best-effort, non-blocking failure)
-    try:
-        await spec_lookup.enrich_engine(engine.id, db)
-        # Refresh to get enriched data
-        await db.refresh(engine)
-    except Exception:
-        pass  # enrichment is best-effort
-
-    return engine
-
-
 @router.get("/families", response_model=List[EngineFamily])
 async def list_engine_families(
     make: Optional[str] = Query(None, description="Filter by engine make"),
@@ -197,6 +151,52 @@ async def identify_engine(
                 break
 
     return EngineIdentifyResponse(suggestions=suggestions, existing_match_id=existing_match_id)
+
+
+@router.get("/{engine_id}", response_model=EngineResponse)
+async def get_engine(engine_id: str, db: AsyncSession = Depends(get_db)):
+    """Get engine details by ID."""
+    result = await db.execute(select(Engine).where(Engine.id == engine_id))
+    engine = result.scalar_one_or_none()
+    if not engine:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Engine not found",
+        )
+    return engine
+
+
+@router.post("", response_model=EngineResponse, status_code=status.HTTP_201_CREATED)
+async def create_engine(
+    engine_data: EngineCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new engine entry (requires authentication).
+    Auto-enriches with API data for any null spec fields."""
+    # Tag user-provided fields
+    user_fields = {
+        k: v for k, v in engine_data.model_dump(exclude_unset=True).items()
+        if v is not None and k not in ("make", "model", "variant", "mesh_file_url", "mount_points",
+                                        "data_sources", "data_source_notes")
+    }
+    initial_sources = {field: "user_contributed" for field in user_fields}
+
+    engine = Engine(**engine_data.model_dump())
+    engine.data_sources = initial_sources if initial_sources else None
+    db.add(engine)
+    await db.commit()
+    await db.refresh(engine)
+
+    # Auto-enrich from APIs (best-effort, non-blocking failure)
+    try:
+        await spec_lookup.enrich_engine(engine.id, db)
+        # Refresh to get enriched data
+        await db.refresh(engine)
+    except Exception:
+        pass  # enrichment is best-effort
+
+    return engine
 
 
 @router.post("/{engine_id}/enrich", response_model=EngineResponse)
