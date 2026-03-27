@@ -371,6 +371,7 @@ async def seed_transmissions():
         Transmission(
             make="Tremec",
             model="T56 Magnum",
+            drivetrain_type="RWD",
             origin_variant="Camaro",
             origin_year=2002,
             origin_make="Chevrolet",
@@ -402,6 +403,7 @@ async def seed_transmissions():
         Transmission(
             make="Tremec",
             model="TKX",
+            drivetrain_type="RWD",
             origin_variant="Camaro",
             origin_year=2019,
             origin_make="Chevrolet",
@@ -433,6 +435,7 @@ async def seed_transmissions():
         Transmission(
             make="Tremec",
             model="T56 Magnum-F",
+            drivetrain_type="RWD",
             origin_variant="Mustang GT",
             origin_year=2018,
             origin_make="Ford",
@@ -464,6 +467,7 @@ async def seed_transmissions():
         Transmission(
             make="GM",
             model="4L60E",
+            drivetrain_type="RWD",
             origin_variant="Silverado",
             origin_year=1999,
             origin_make="Chevrolet",
@@ -495,6 +499,7 @@ async def seed_transmissions():
         Transmission(
             make="GM",
             model="4L80E",
+            drivetrain_type="RWD",
             origin_variant="Silverado",
             origin_year=1999,
             origin_make="Chevrolet",
@@ -526,6 +531,7 @@ async def seed_transmissions():
         Transmission(
             make="Toyota",
             model="R154",
+            drivetrain_type="RWD",
             origin_variant="Supra",
             origin_year=1993,
             origin_make="Toyota",
@@ -557,6 +563,7 @@ async def seed_transmissions():
         Transmission(
             make="Nissan",
             model="CD009",
+            drivetrain_type="RWD",
             origin_variant="350Z",
             origin_year=2004,
             origin_make="Nissan",
@@ -847,6 +854,9 @@ async def main():
                     changed = True
                 if existing.bellhousing_pattern != trans.bellhousing_pattern and trans.bellhousing_pattern:
                     existing.bellhousing_pattern = trans.bellhousing_pattern
+                    changed = True
+                if existing.drivetrain_type is None and trans.drivetrain_type is not None:
+                    existing.drivetrain_type = trans.drivetrain_type
                     changed = True
                 if changed:
                     session.add(existing)

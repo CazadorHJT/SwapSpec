@@ -204,8 +204,12 @@ async def identify_transmission(
                 f'Identify the transmission(s) described by: "{query_text}"\n\n'
                 "Return a JSON array of 1-3 transmission objects with these fields (all optional except make/model):\n"
                 "make, model, trans_type (Manual/Automatic), gear_count, bellhousing_pattern,\n"
-                "max_torque_capacity_lb_ft, origin_year, origin_make, origin_model, origin_variant,\n"
+                "max_torque_capacity_lb_ft, drivetrain_type, origin_year, origin_make, origin_model, origin_variant,\n"
                 "confidence (high/medium/low), explanation.\n\n"
+                "IMPORTANT: origin_year/origin_make/origin_model refer to the VEHICLE this transmission came from "
+                "(e.g., T56 Magnum: origin_year=2002, origin_make='Chevrolet', origin_model='Camaro'). "
+                "This is the donor car, NOT the transmission name. origin_variant is the transmission code. "
+                "drivetrain_type should be one of: FWD, RWD, AWD, 4WD.\n\n"
                 "Respond ONLY with valid JSON array, no markdown."
             )
             msg = client.messages.create(
@@ -219,7 +223,13 @@ async def identify_transmission(
                 raw = raw.rsplit("```", 1)[0].strip()
             data = json.loads(raw)
             for item in data[:3]:
-                suggestions.append(TransmissionIdentifySuggestion(**item))
+                sug = TransmissionIdentifySuggestion(**item)
+                # Reject self-referencing origin_model (AI confused trans name for donor vehicle)
+                if sug.origin_model and sug.model and sug.origin_model.lower() == sug.model.lower():
+                    sug.origin_model = None
+                    sug.origin_year = None
+                    sug.origin_make = None
+                suggestions.append(sug)
         except Exception as exc:
             logger.warning(f"Transmission identify AI call failed: {exc}")
 

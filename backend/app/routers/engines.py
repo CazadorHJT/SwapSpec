@@ -109,6 +109,9 @@ async def identify_engine(
                 "Return a JSON array of 1-3 engine objects with these fields (all optional except make/model):\n"
                 "make, model, variant, engine_family, displacement_liters, power_hp, torque_lb_ft,\n"
                 "origin_year, origin_make, origin_model, origin_variant, confidence (high/medium/low), explanation.\n\n"
+                "IMPORTANT: origin_year/origin_make/origin_model refer to the VEHICLE this engine came from "
+                "(e.g., LS1: origin_year=1998, origin_make='Chevrolet', origin_model='Camaro'). "
+                "This is the donor car, NOT the engine name. origin_variant is the engine code (e.g., 'LS1', '2JZ-GTE').\n\n"
                 "Respond ONLY with valid JSON array, no markdown."
             )
             msg = client.messages.create(
@@ -123,7 +126,13 @@ async def identify_engine(
                 raw = raw.rsplit("```", 1)[0].strip()
             data = json.loads(raw)
             for item in data[:3]:
-                suggestions.append(EngineIdentifySuggestion(**item))
+                sug = EngineIdentifySuggestion(**item)
+                # Reject self-referencing origin_model (AI confused engine name for donor vehicle)
+                if sug.origin_model and sug.model and sug.origin_model.lower() == sug.model.lower():
+                    sug.origin_model = None
+                    sug.origin_year = None
+                    sug.origin_make = None
+                suggestions.append(sug)
         except Exception as exc:
             logger.warning(f"Engine identify AI call failed: {exc}")
 
