@@ -55,6 +55,7 @@ FastAPI backend for SwapSpec, an engine swap planning platform. Provides REST AP
 - **Transmissions** match **Engines** via bellhousing patterns
 - **ManualChunk** rows store indexed text from charm.li service manuals, scoped by `scope` (`"chassis"` | `"engine"` | `"transmission"`), with optional FKs to `engine_id` / `transmission_id`
 - **Engine** + **Transmission** have `origin_year/make/model` identifying the donor vehicle whose service manual contains their documentation
+- **Vehicles** have `stock_engine_model` and `stock_transmission_model` (string labels) for the "chassis original" groupings in the build wizard; `stock_engine_model` is also surfaced in the VIN decoder UI
 
 ### Data Provenance
 
@@ -142,7 +143,7 @@ The `/api/manuals/upload` endpoint accepts PDF, ZIP, or image (PNG/JPG) files wi
 
 ### Testing
 
-**49 tests pass** (24 API + 25 RAG). Run: `pytest tests/`
+**51 tests pass** (26 API + 25 RAG). Run: `pytest tests/`
 
 `tests/conftest.py` overrides `DATABASE_URL` to SQLite, clears `get_settings` and `get_supabase_client` LRU caches. Mock only `app.services.supabase_client.get_supabase_client` — `auth.py` and `routers/auth.py` import it lazily inside functions, so patching those module namespaces raises `AttributeError`.
 
@@ -176,3 +177,5 @@ Current migration chain:
 - `c3d4e5f6a7b8` — GIN index on `manual_chunks.content` + unique expression index for upsert constraint
 - `d4e5f6a7b8c9` — Add `ingest_jobs` table (PostgreSQL job persistence); add `source_priority` column on `manual_chunks` with backfill
 - `e5f6a7b8c9d0` — Add `engine_family` + `origin_variant` to engines; `origin_variant` to transmissions; `stock_transmission_model` to vehicles; backfills seed data values
+- `f6a7b8c9d0e1` — Add `drivetrain_type` to transmissions; backfills seeded transmissions
+- `a1b2c3d4e5f7` — Add `stock_engine_model` to vehicles; backfills all seeded vehicles
