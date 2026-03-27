@@ -29,6 +29,9 @@ class TransmissionBase(BaseModel):
     data_sources: Optional[dict] = None
     data_source_notes: Optional[str] = None
 
+    # Drivetrain type
+    drivetrain_type: Optional[str] = None
+
     # Variant hint for charm.li matching
     origin_variant: Optional[str] = None
 
@@ -68,6 +71,7 @@ class TransmissionIdentifySuggestion(BaseModel):
     gear_count: Optional[int] = None
     bellhousing_pattern: Optional[str] = None
     max_torque_capacity_lb_ft: Optional[int] = None
+    drivetrain_type: Optional[str] = None
     origin_year: Optional[int] = None
     origin_make: Optional[str] = None
     origin_model: Optional[str] = None
