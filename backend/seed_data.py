@@ -604,6 +604,7 @@ async def seed_vehicles():
             make="Chevrolet",
             model="Camaro",
             trim="SS",
+            stock_engine_model="5.7L L48 V8",
             stock_transmission_model="Muncie M21 4-speed",
             vin_pattern="124379",
             quality_status=QualityStatus.approved,
@@ -630,6 +631,7 @@ async def seed_vehicles():
             make="Ford",
             model="Mustang",
             trim="Fastback",
+            stock_engine_model="4.7L 289 V8",
             stock_transmission_model="Ford C4 3-speed auto",
             vin_pattern="7F02C",
             quality_status=QualityStatus.approved,
@@ -656,6 +658,7 @@ async def seed_vehicles():
             make="Dodge",
             model="Challenger",
             trim="R/T",
+            stock_engine_model="6.3L 383 V8",
             stock_transmission_model="TorqueFlite A727 3-speed",
             vin_pattern="JH23R0B",
             quality_status=QualityStatus.approved,
@@ -682,6 +685,7 @@ async def seed_vehicles():
             make="Mazda",
             model="Miata",
             trim="NA",
+            stock_engine_model="1.6L BP-4W",
             stock_transmission_model="Mazda M15M-D 5-speed",
             vin_pattern="JM1NA35",
             quality_status=QualityStatus.approved,
@@ -710,6 +714,7 @@ async def seed_vehicles():
             make="Nissan",
             model="240SX",
             trim="SE",
+            stock_engine_model="2.4L KA24E",
             stock_transmission_model="Nissan FS5W71C 5-speed",
             vin_pattern="JN1MS34",
             quality_status=QualityStatus.approved,
@@ -736,6 +741,7 @@ async def seed_vehicles():
             make="Toyota",
             model="Supra",
             trim="Turbo",
+            stock_engine_model="3.0L 2JZ-GTE",
             stock_transmission_model="Toyota V160 6-speed",
             vin_pattern="JT2JA82",
             quality_status=QualityStatus.approved,
@@ -762,6 +768,7 @@ async def seed_vehicles():
             make="Ford",
             model="Mustang",
             trim="GT",
+            stock_engine_model="4.6L 3V V8",
             stock_transmission_model="Tremec T-3650 5-speed",
             vin_pattern="1ZVFT82H",
             quality_status=QualityStatus.approved,
@@ -888,6 +895,9 @@ async def main():
                     changed = True
                 if existing.stock_transmission_model is None and vehicle.stock_transmission_model is not None:
                     existing.stock_transmission_model = vehicle.stock_transmission_model
+                    changed = True
+                if existing.stock_engine_model is None and vehicle.stock_engine_model is not None:
+                    existing.stock_engine_model = vehicle.stock_engine_model
                     changed = True
                 if changed:
                     session.add(existing)
