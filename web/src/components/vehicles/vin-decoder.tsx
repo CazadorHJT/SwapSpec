@@ -21,12 +21,17 @@ interface VinDecoderProps {
   existingVehicles?: Vehicle[];
 }
 
-export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderProps) {
+export function VinDecoder({
+  onVehicleCreated,
+  existingVehicles,
+}: VinDecoderProps) {
   const [vin, setVin] = useState("");
   const [result, setResult] = useState<VINDecodeResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
   const [duplicate, setDuplicate] = useState<Vehicle | null>(null);
+  const [stockEngineModel, setStockEngineModel] = useState("");
+  const [stockTransmissionModel, setStockTransmissionModel] = useState("");
 
   const canAdd = result?.year && result?.make && result?.model;
 
@@ -40,6 +45,7 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
     try {
       const data = await api.decodeVin(vin);
       setResult(data);
+      if (data.engine) setStockEngineModel(data.engine);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "VIN decode failed");
     } finally {
@@ -60,7 +66,7 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
       (v) =>
         v.year === result.year &&
         v.make.toLowerCase() === result.make!.toLowerCase() &&
-        v.model.toLowerCase() === result.model!.toLowerCase()
+        v.model.toLowerCase() === result.model!.toLowerCase(),
     );
   }
 
@@ -86,12 +92,16 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
         engine_displacement_l: result!.displacement_l,
         engine_cylinders: result!.cylinders,
         vin_pattern: vin,
+        stock_engine_model: stockEngineModel.trim() || undefined,
+        stock_transmission_model: stockTransmissionModel.trim() || undefined,
       });
       toast.success("Vehicle added!");
       onVehicleCreated?.(vehicle);
       setResult(null);
       setVin("");
       setDuplicate(null);
+      setStockEngineModel("");
+      setStockTransmissionModel("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add vehicle");
     } finally {
@@ -165,12 +175,14 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
             )}
             {result.drive_type && (
               <p>
-                <span className="font-medium">Drive Type:</span> {result.drive_type}
+                <span className="font-medium">Drive Type:</span>{" "}
+                {result.drive_type}
               </p>
             )}
             {result.body_style && (
               <p>
-                <span className="font-medium">Body:</span> {result.body_style.split("/")[0].trim()}
+                <span className="font-medium">Body:</span>{" "}
+                {result.body_style.split("/")[0].trim()}
               </p>
             )}
             {result.doors && (
@@ -180,12 +192,14 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
             )}
             {result.cylinders && (
               <p>
-                <span className="font-medium">Cylinders:</span> {result.cylinders}
+                <span className="font-medium">Cylinders:</span>{" "}
+                {result.cylinders}
               </p>
             )}
             {result.displacement_l && (
               <p>
-                <span className="font-medium">Displacement:</span> {result.displacement_l}L
+                <span className="font-medium">Displacement:</span>{" "}
+                {result.displacement_l}L
               </p>
             )}
           </div>
@@ -193,6 +207,36 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
 
         {result && canAdd && onVehicleCreated && (
           <>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="stock-engine">
+                  Stock Engine{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id="stock-engine"
+                  placeholder="e.g. 5.0L Coyote V8"
+                  value={stockEngineModel}
+                  onChange={(e) => setStockEngineModel(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="stock-trans">
+                  Stock Transmission{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id="stock-trans"
+                  placeholder="e.g. Tremec TR-3650 5-speed"
+                  value={stockTransmissionModel}
+                  onChange={(e) => setStockTransmissionModel(e.target.value)}
+                />
+              </div>
+            </div>
             {duplicate ? (
               <div className="rounded-md border border-yellow-500/50 bg-yellow-500/10 p-4 text-sm space-y-3">
                 <p>
@@ -203,11 +247,20 @@ export function VinDecoder({ onVehicleCreated, existingVehicles }: VinDecoderPro
                   </span>
                 </p>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={handleUseExisting}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleUseExisting}
+                  >
                     <ArrowRight className="mr-2 h-4 w-4" />
                     Use Existing
                   </Button>
-                  <Button size="sm" variant="secondary" onClick={handleAdd} disabled={adding}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleAdd}
+                    disabled={adding}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     {adding ? "Adding..." : "Add Anyway"}
                   </Button>
