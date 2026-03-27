@@ -46,6 +46,7 @@ export function VinDecoder({
       const data = await api.decodeVin(vin);
       setResult(data);
       if (data.engine) setStockEngineModel(data.engine);
+      if (data.transmission) setStockTransmissionModel(data.transmission);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "VIN decode failed");
     } finally {

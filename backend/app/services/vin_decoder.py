@@ -45,12 +45,26 @@ class VINDecoderService:
                         doors = int(doors)
                     except (ValueError, TypeError):
                         doors = None
+                # Build transmission label from style + speeds (e.g. "6-speed Automatic")
+                trans_style = parsed.get("transmission_style")
+                trans_speeds = parsed.get("transmission_speeds")
+                transmission_label: Optional[str] = None
+                if trans_style and trans_style.lower() not in ("not applicable", "unknown", ""):
+                    if trans_speeds:
+                        try:
+                            transmission_label = f"{int(trans_speeds)}-speed {trans_style}"
+                        except (ValueError, TypeError):
+                            transmission_label = trans_style
+                    else:
+                        transmission_label = trans_style
+
                 return VINDecodeResponse(
                     year=parsed.get("year"),
                     make=parsed.get("make"),
                     model=parsed.get("model"),
                     trim=parsed.get("trim"),
                     engine=parsed.get("engine"),
+                    transmission=transmission_label,
                     drive_type=parsed.get("drive_type"),
                     cylinders=cylinders,
                     displacement_l=displacement,
@@ -77,6 +91,8 @@ class VINDecoderService:
             "Engine Number of Cylinders": "cylinders",
             "Body Class":                  "body_style",
             "Doors":                       "doors",
+            "Transmission Style":          "transmission_style",
+            "Transmission Speeds":         "transmission_speeds",
         }
 
         for item in results:
