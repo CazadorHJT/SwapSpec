@@ -67,6 +67,7 @@ export interface Vehicle {
   steering_type?: string;
   steering_clearance_notes?: string;
   stock_ground_clearance_in?: number;
+  stock_engine_model?: string;
   stock_transmission_model?: string;
   // Data provenance
   data_sources?: DataSources;
@@ -99,6 +100,8 @@ export interface VehicleCreate {
   steering_type?: string;
   steering_clearance_notes?: string;
   stock_ground_clearance_in?: number;
+  stock_engine_model?: string;
+  stock_transmission_model?: string;
 }
 
 export interface VehicleList {

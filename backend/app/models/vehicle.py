@@ -52,7 +52,8 @@ class Vehicle(Base):
     steering_clearance_notes: Mapped[str] = mapped_column(String(500), nullable=True)
     stock_ground_clearance_in: Mapped[float] = mapped_column(Float, nullable=True)
 
-    # Stock transmission for chassis-original grouping in build wizard
+    # Stock engine/transmission for chassis-original grouping in build wizard
+    stock_engine_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     stock_transmission_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Data provenance
