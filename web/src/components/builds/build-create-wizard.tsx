@@ -86,6 +86,8 @@ export function BuildCreateWizard() {
   const [selectedEngineSug, setSelectedEngineSug] =
     useState<EngineIdentifySuggestion | null>(null);
 
+  const [creatingChassisOriginal, setCreatingChassisOriginal] = useState(false);
+
   // Add transmission dialog
   const [addTransOpen, setAddTransOpen] = useState(false);
   const [transQuery, setTransQuery] = useState("");
@@ -155,6 +157,32 @@ export function BuildCreateWizard() {
       setCreating(false);
     }
   }, [vehicle, engine, transmission, router]);
+
+  const handleSelectChassisOriginalTrans = useCallback(
+    async (label: string) => {
+      if (!vehicle) return;
+      setCreatingChassisOriginal(true);
+      try {
+        const trans = await api.createTransmission({
+          make: vehicle.make,
+          model: label,
+          origin_year: vehicle.year,
+          origin_make: vehicle.make,
+          origin_model: vehicle.model,
+        });
+        setTransmission(trans);
+        transGroupsData.refetch();
+        toast.success("Transmission added and selected.");
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to add transmission",
+        );
+      } finally {
+        setCreatingChassisOriginal(false);
+      }
+    },
+    [vehicle, transGroupsData],
+  );
 
   // Engine identify handler
   const handleEngineSearch = async () => {
@@ -500,19 +528,11 @@ export function BuildCreateWizard() {
                   {/* Chassis original */}
                   {groups.chassis_original_label && (
                     <div className="rounded-md border p-3 bg-muted/30">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                         Original chassis transmission
                       </p>
-                      <p className="text-sm">
-                        The {vehicle?.year} {vehicle?.make} {vehicle?.model}{" "}
-                        came with a{" "}
-                        <span className="font-medium">
-                          {groups.chassis_original_label}
-                        </span>
-                        .
-                      </p>
-                      {groups.chassis_original.length > 0 && (
-                        <div className="mt-2 space-y-1">
+                      {groups.chassis_original.length > 0 ? (
+                        <div className="space-y-1">
                           {groups.chassis_original.map((t) => (
                             <TransmissionCard
                               key={t.id}
@@ -522,6 +542,33 @@ export function BuildCreateWizard() {
                             />
                           ))}
                         </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleSelectChassisOriginalTrans(
+                              groups.chassis_original_label!,
+                            )
+                          }
+                          disabled={creatingChassisOriginal}
+                          className="w-full text-left rounded-md border border-dashed p-3 hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium">
+                                {groups.chassis_original_label}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Factory {vehicle?.year} {vehicle?.make}{" "}
+                                {vehicle?.model} transmission — click to add
+                                &amp; select
+                              </p>
+                            </div>
+                            {creatingChassisOriginal && (
+                              <Loader2 className="h-4 w-4 animate-spin shrink-0 text-muted-foreground" />
+                            )}
+                          </div>
+                        </button>
                       )}
                     </div>
                   )}

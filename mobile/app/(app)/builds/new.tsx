@@ -107,6 +107,7 @@ export default function NewBuildScreen() {
   const [transDonorYear, setTransDonorYear] = useState("");
   const [transDonorMake, setTransDonorMake] = useState("");
   const [transDonorModel, setTransDonorModel] = useState("");
+  const [creatingChassisOriginal, setCreatingChassisOriginal] = useState(false);
 
   async function create() {
     if (!selectedVehicle || !selectedEngine) return;
@@ -122,6 +123,28 @@ export default function NewBuildScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create build.");
       setCreating(false);
+    }
+  }
+
+  async function handleSelectChassisOriginalTrans(label: string) {
+    if (!selectedVehicle) return;
+    setCreatingChassisOriginal(true);
+    try {
+      const trans = await api.createTransmission({
+        make: selectedVehicle.make,
+        model: label,
+        origin_year: selectedVehicle.year,
+        origin_make: selectedVehicle.make,
+        origin_model: selectedVehicle.model,
+      } as Parameters<typeof api.createTransmission>[0]);
+      setSelectedTransmission(trans);
+      transGroups.refetch();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to add transmission.",
+      );
+    } finally {
+      setCreatingChassisOriginal(false);
     }
   }
 
@@ -438,27 +461,52 @@ export default function NewBuildScreen() {
                 </>
               )}
 
-              {/* Chassis original info */}
+              {/* Chassis original */}
               {groups.chassis_original_label && (
                 <View style={styles.chassisInfo}>
                   <Text style={styles.chassisInfoLabel}>
                     Original chassis transmission
                   </Text>
-                  <Text style={styles.chassisInfoText}>
-                    {selectedVehicle?.year} {selectedVehicle?.make}{" "}
-                    {selectedVehicle?.model} came with:{" "}
-                    <Text style={{ fontWeight: "600" }}>
-                      {groups.chassis_original_label}
-                    </Text>
-                  </Text>
-                  {groups.chassis_original.map((t) => (
-                    <TransCard
-                      key={t.id}
-                      trans={t}
-                      selected={selectedTransmission?.id === t.id}
-                      onPress={() => setSelectedTransmission(t)}
-                    />
-                  ))}
+                  {groups.chassis_original.length > 0 ? (
+                    groups.chassis_original.map((t) => (
+                      <TransCard
+                        key={t.id}
+                        trans={t}
+                        selected={selectedTransmission?.id === t.id}
+                        onPress={() => setSelectedTransmission(t)}
+                      />
+                    ))
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.ghostCard,
+                        creatingChassisOriginal && styles.ghostCardDisabled,
+                      ]}
+                      onPress={() =>
+                        handleSelectChassisOriginalTrans(
+                          groups.chassis_original_label!,
+                        )
+                      }
+                      disabled={creatingChassisOriginal}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.ghostCardTitle}>
+                          {groups.chassis_original_label}
+                        </Text>
+                        <Text style={styles.ghostCardSub}>
+                          Factory {selectedVehicle?.year}{" "}
+                          {selectedVehicle?.make} {selectedVehicle?.model}{" "}
+                          transmission — tap to add &amp; select
+                        </Text>
+                      </View>
+                      {creatingChassisOriginal && (
+                        <ActivityIndicator
+                          color={colors.textMuted}
+                          size="small"
+                        />
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
@@ -1065,6 +1113,29 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.text,
     marginBottom: spacing.xs,
+  },
+  ghostCard: {
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  ghostCardDisabled: {
+    opacity: 0.5,
+  },
+  ghostCardTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  ghostCardSub: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   // Selected info
   selectedInfo: {
