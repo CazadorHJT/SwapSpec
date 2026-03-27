@@ -39,6 +39,9 @@ class Transmission(Base):
     data_sources: Mapped[dict] = mapped_column(JSON, nullable=True)
     data_source_notes: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Drivetrain type
+    drivetrain_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+
     # Variant hint for charm.li matching
     origin_variant: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 

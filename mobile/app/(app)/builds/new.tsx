@@ -15,7 +15,13 @@ import { router } from "expo-router";
 import * as api from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { colors, spacing, fontSize, radius } from "@/lib/theme";
-import { ChevronLeft, ChevronRight, Check, X, Search } from "lucide-react-native";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  X,
+  Search,
+} from "lucide-react-native";
 import type {
   Vehicle,
   Engine,
@@ -49,7 +55,8 @@ export default function NewBuildScreen() {
   const [step, setStep] = useState<Step>(0);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [selectedEngine, setSelectedEngine] = useState<Engine | null>(null);
-  const [selectedTransmission, setSelectedTransmission] = useState<Transmission | null>(null);
+  const [selectedTransmission, setSelectedTransmission] =
+    useState<Transmission | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,15 +69,24 @@ export default function NewBuildScreen() {
 
   // Engine: family drill-down
   const [familyMakeFilter, setFamilyMakeFilter] = useState("");
-  const [selectedFamily, setSelectedFamily] = useState<EngineFamily | null>(null);
+  const [selectedFamily, setSelectedFamily] = useState<EngineFamily | null>(
+    null,
+  );
   const families = useEngineFamilies(familyMakeFilter || undefined);
 
   // Add engine dialog
   const [addEngineOpen, setAddEngineOpen] = useState(false);
   const [engineQuery, setEngineQuery] = useState("");
   const [engineQueryLoading, setEngineQueryLoading] = useState(false);
-  const [engineSuggestions, setEngineSuggestions] = useState<EngineIdentifySuggestion[]>([]);
+  const [engineSuggestions, setEngineSuggestions] = useState<
+    EngineIdentifySuggestion[]
+  >([]);
   const [engineExistingId, setEngineExistingId] = useState<string | null>(null);
+  const [selectedEngineSug, setSelectedEngineSug] =
+    useState<EngineIdentifySuggestion | null>(null);
+  const [engineDonorYear, setEngineDonorYear] = useState("");
+  const [engineDonorMake, setEngineDonorMake] = useState("");
+  const [engineDonorModel, setEngineDonorModel] = useState("");
 
   // Transmission groups
   const transGroups = useTransmissionsForBuild(
@@ -82,8 +98,15 @@ export default function NewBuildScreen() {
   const [addTransOpen, setAddTransOpen] = useState(false);
   const [transQuery, setTransQuery] = useState("");
   const [transQueryLoading, setTransQueryLoading] = useState(false);
-  const [transSuggestions, setTransSuggestions] = useState<TransmissionIdentifySuggestion[]>([]);
+  const [transSuggestions, setTransSuggestions] = useState<
+    TransmissionIdentifySuggestion[]
+  >([]);
   const [transExistingId, setTransExistingId] = useState<string | null>(null);
+  const [selectedTransSug, setSelectedTransSug] =
+    useState<TransmissionIdentifySuggestion | null>(null);
+  const [transDonorYear, setTransDonorYear] = useState("");
+  const [transDonorMake, setTransDonorMake] = useState("");
+  const [transDonorModel, setTransDonorModel] = useState("");
 
   async function create() {
     if (!selectedVehicle || !selectedEngine) return;
@@ -116,7 +139,16 @@ export default function NewBuildScreen() {
     }
   }
 
-  async function handleSelectEngineSuggestion(sug: EngineIdentifySuggestion) {
+  function handleSelectEngineSuggestion(sug: EngineIdentifySuggestion) {
+    setSelectedEngineSug(sug);
+    setEngineDonorYear(sug.origin_year ? String(sug.origin_year) : "");
+    setEngineDonorMake(sug.origin_make ?? "");
+    setEngineDonorModel(sug.origin_model ?? "");
+  }
+
+  async function handleConfirmEngineSuggestion() {
+    if (!selectedEngineSug) return;
+    const sug = selectedEngineSug;
     if (engineExistingId) {
       try {
         const existing = await api.getEngine(engineExistingId);
@@ -132,12 +164,15 @@ export default function NewBuildScreen() {
         make: sug.make,
         model: sug.model,
         variant: sug.variant,
+        engine_family: sug.engine_family,
         power_hp: sug.power_hp,
         torque_lb_ft: sug.torque_lb_ft,
         displacement_liters: sug.displacement_liters,
-        origin_year: sug.origin_year,
-        origin_make: sug.origin_make,
-        origin_model: sug.origin_model,
+        origin_year: engineDonorYear
+          ? parseInt(engineDonorYear)
+          : sug.origin_year,
+        origin_make: engineDonorMake || sug.origin_make,
+        origin_model: engineDonorModel || sug.origin_model,
         origin_variant: sug.origin_variant,
       } as Parameters<typeof api.createEngine>[0]);
       setSelectedEngine(created);
@@ -161,7 +196,16 @@ export default function NewBuildScreen() {
     }
   }
 
-  async function handleSelectTransSuggestion(sug: TransmissionIdentifySuggestion) {
+  function handleSelectTransSuggestion(sug: TransmissionIdentifySuggestion) {
+    setSelectedTransSug(sug);
+    setTransDonorYear(sug.origin_year ? String(sug.origin_year) : "");
+    setTransDonorMake(sug.origin_make ?? "");
+    setTransDonorModel(sug.origin_model ?? "");
+  }
+
+  async function handleConfirmTransSuggestion() {
+    if (!selectedTransSug) return;
+    const sug = selectedTransSug;
     if (transExistingId) {
       try {
         const existing = await api.getTransmission(transExistingId);
@@ -179,15 +223,20 @@ export default function NewBuildScreen() {
         trans_type: sug.trans_type,
         gear_count: sug.gear_count,
         bellhousing_pattern: sug.bellhousing_pattern,
-        origin_year: sug.origin_year,
-        origin_make: sug.origin_make,
-        origin_model: sug.origin_model,
+        drivetrain_type: sug.drivetrain_type,
+        origin_year: transDonorYear
+          ? parseInt(transDonorYear)
+          : sug.origin_year,
+        origin_make: transDonorMake || sug.origin_make,
+        origin_model: transDonorModel || sug.origin_model,
         origin_variant: sug.origin_variant,
       } as Parameters<typeof api.createTransmission>[0]);
       setSelectedTransmission(created);
       setAddTransOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create transmission.");
+      setError(
+        err instanceof Error ? err.message : "Failed to create transmission.",
+      );
     }
   }
 
@@ -222,12 +271,16 @@ export default function NewBuildScreen() {
               {i < step ? (
                 <Check color={colors.primaryForeground} size={12} />
               ) : (
-                <Text style={[styles.stepNum, i === step && styles.stepNumActive]}>
+                <Text
+                  style={[styles.stepNum, i === step && styles.stepNumActive]}
+                >
                   {i + 1}
                 </Text>
               )}
             </View>
-            <Text style={[styles.stepLabel, i === step && styles.stepLabelActive]}>
+            <Text
+              style={[styles.stepLabel, i === step && styles.stepLabelActive]}
+            >
               {label}
             </Text>
           </View>
@@ -245,14 +298,23 @@ export default function NewBuildScreen() {
             placeholder="Filter by make…"
             placeholderTextColor={colors.textSubtle}
           />
-          {vehicles.loading && <ActivityIndicator color={colors.text} style={{ marginTop: spacing.lg }} />}
+          {vehicles.loading && (
+            <ActivityIndicator
+              color={colors.text}
+              style={{ marginTop: spacing.lg }}
+            />
+          )}
           {(vehicles.data?.vehicles ?? []).map((v: Vehicle) => (
             <SelectCard
               key={v.id}
               selected={selectedVehicle?.id === v.id}
               onPress={() => setSelectedVehicle(v)}
               title={`${v.year} ${v.make} ${v.model}${v.trim ? ` ${v.trim}` : ""}`}
-              subtitle={v.stock_transmission_model ? `Stock trans: ${v.stock_transmission_model}` : undefined}
+              subtitle={
+                v.stock_transmission_model
+                  ? `Stock trans: ${v.stock_transmission_model}`
+                  : undefined
+              }
             />
           ))}
         </ScrollView>
@@ -271,7 +333,12 @@ export default function NewBuildScreen() {
                 placeholder="Filter by manufacturer…"
                 placeholderTextColor={colors.textSubtle}
               />
-              {families.loading && <ActivityIndicator color={colors.text} style={{ marginTop: spacing.lg }} />}
+              {families.loading && (
+                <ActivityIndicator
+                  color={colors.text}
+                  style={{ marginTop: spacing.lg }}
+                />
+              )}
               {(families.data ?? []).map((fam) => (
                 <FamilyCard
                   key={fam.family}
@@ -303,11 +370,15 @@ export default function NewBuildScreen() {
                     setSelectedFamily(null);
                   }}
                   title={v.model}
-                  subtitle={[
-                    v.variant,
-                    v.power_hp ? `${v.power_hp} hp` : null,
-                    v.torque_lb_ft ? `${v.torque_lb_ft} lb-ft` : null,
-                  ].filter(Boolean).join(" · ") || undefined}
+                  subtitle={
+                    [
+                      v.variant,
+                      v.power_hp ? `${v.power_hp} hp` : null,
+                      v.torque_lb_ft ? `${v.torque_lb_ft} lb-ft` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || undefined
+                  }
                 />
               ))}
             </>
@@ -317,7 +388,8 @@ export default function NewBuildScreen() {
             <View style={styles.selectedInfo}>
               <Check color={colors.primary} size={14} />
               <Text style={styles.selectedInfoText}>
-                {selectedEngine.make} {selectedEngine.model} {selectedEngine.variant ?? ""}
+                {selectedEngine.make} {selectedEngine.model}{" "}
+                {selectedEngine.variant ?? ""}
               </Text>
             </View>
           )}
@@ -342,7 +414,12 @@ export default function NewBuildScreen() {
           <Text style={styles.sectionTitle}>Select a Transmission</Text>
           <Text style={styles.sectionSubtitle}>Optional</Text>
 
-          {transGroups.loading && <ActivityIndicator color={colors.text} style={{ marginTop: spacing.lg }} />}
+          {transGroups.loading && (
+            <ActivityIndicator
+              color={colors.text}
+              style={{ marginTop: spacing.lg }}
+            />
+          )}
 
           {groups && (
             <>
@@ -364,10 +441,15 @@ export default function NewBuildScreen() {
               {/* Chassis original info */}
               {groups.chassis_original_label && (
                 <View style={styles.chassisInfo}>
-                  <Text style={styles.chassisInfoLabel}>Original chassis transmission</Text>
+                  <Text style={styles.chassisInfoLabel}>
+                    Original chassis transmission
+                  </Text>
                   <Text style={styles.chassisInfoText}>
-                    {selectedVehicle?.year} {selectedVehicle?.make} {selectedVehicle?.model} came with:{" "}
-                    <Text style={{ fontWeight: "600" }}>{groups.chassis_original_label}</Text>
+                    {selectedVehicle?.year} {selectedVehicle?.make}{" "}
+                    {selectedVehicle?.model} came with:{" "}
+                    <Text style={{ fontWeight: "600" }}>
+                      {groups.chassis_original_label}
+                    </Text>
                   </Text>
                   {groups.chassis_original.map((t) => (
                     <TransCard
@@ -423,9 +505,30 @@ export default function NewBuildScreen() {
       {step === 3 && (
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.sectionTitle}>Review & Create</Text>
-          <ReviewRow label="Vehicle" value={selectedVehicle ? `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}` : "—"} />
-          <ReviewRow label="Engine" value={selectedEngine ? `${selectedEngine.make} ${selectedEngine.model}${selectedEngine.variant ? ` ${selectedEngine.variant}` : ""}` : "—"} />
-          <ReviewRow label="Transmission" value={selectedTransmission ? `${selectedTransmission.make} ${selectedTransmission.model}` : "None"} />
+          <ReviewRow
+            label="Vehicle"
+            value={
+              selectedVehicle
+                ? `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`
+                : "—"
+            }
+          />
+          <ReviewRow
+            label="Engine"
+            value={
+              selectedEngine
+                ? `${selectedEngine.make} ${selectedEngine.model}${selectedEngine.variant ? ` ${selectedEngine.variant}` : ""}`
+                : "—"
+            }
+          />
+          <ReviewRow
+            label="Transmission"
+            value={
+              selectedTransmission
+                ? `${selectedTransmission.make} ${selectedTransmission.model}`
+                : "None"
+            }
+          />
           {error && <Text style={styles.error}>{error}</Text>}
         </ScrollView>
       )}
@@ -436,11 +539,15 @@ export default function NewBuildScreen() {
           <TouchableOpacity
             style={[
               styles.nextBtn,
-              ((step === 0 && !selectedVehicle) || (step === 1 && !selectedEngine)) &&
+              ((step === 0 && !selectedVehicle) ||
+                (step === 1 && !selectedEngine)) &&
                 styles.nextBtnDisabled,
             ]}
             onPress={() => setStep((step + 1) as Step)}
-            disabled={(step === 0 && !selectedVehicle) || (step === 1 && !selectedEngine)}
+            disabled={
+              (step === 0 && !selectedVehicle) ||
+              (step === 1 && !selectedEngine)
+            }
           >
             <Text style={styles.nextBtnText}>
               {step === 2 ? "Review" : "Next"}
@@ -463,7 +570,11 @@ export default function NewBuildScreen() {
       </View>
 
       {/* Add Engine Modal */}
-      <Modal visible={addEngineOpen} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={addEngineOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
         <KeyboardAvoidingView
           style={styles.modal}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -474,7 +585,9 @@ export default function NewBuildScreen() {
               <X color={colors.text} size={20} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.modalSubtitle}>Describe the engine — AI will identify it.</Text>
+          <Text style={styles.modalSubtitle}>
+            Describe the engine — AI will identify it.
+          </Text>
           <View style={styles.searchRow}>
             <TextInput
               style={[styles.filter, { flex: 1, marginBottom: 0 }]}
@@ -491,7 +604,10 @@ export default function NewBuildScreen() {
               disabled={engineQueryLoading}
             >
               {engineQueryLoading ? (
-                <ActivityIndicator color={colors.primaryForeground} size="small" />
+                <ActivityIndicator
+                  color={colors.primaryForeground}
+                  size="small"
+                />
               ) : (
                 <Search color={colors.primaryForeground} size={18} />
               )}
@@ -509,21 +625,68 @@ export default function NewBuildScreen() {
                 </Text>
                 <Text style={styles.suggestionSub}>
                   {[
-                    sug.displacement_liters ? `${sug.displacement_liters}L` : null,
+                    sug.displacement_liters
+                      ? `${sug.displacement_liters}L`
+                      : null,
                     sug.power_hp ? `${sug.power_hp} hp` : null,
-                  ].filter(Boolean).join(" · ")}
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </Text>
                 {sug.explanation ? (
                   <Text style={styles.suggestionNote}>{sug.explanation}</Text>
                 ) : null}
               </TouchableOpacity>
             ))}
+            {selectedEngineSug && (
+              <View style={styles.donorBox}>
+                <Text style={styles.donorLabel}>Donor Vehicle</Text>
+                <Text style={styles.donorHint}>
+                  The vehicle this engine came from — used to find the correct
+                  factory service manual.
+                </Text>
+                <View style={styles.donorRow}>
+                  <TextInput
+                    style={[styles.filter, styles.donorInput]}
+                    value={engineDonorYear}
+                    onChangeText={setEngineDonorYear}
+                    placeholder="Year"
+                    placeholderTextColor={colors.textSubtle}
+                    keyboardType="number-pad"
+                  />
+                  <TextInput
+                    style={[styles.filter, styles.donorInput]}
+                    value={engineDonorMake}
+                    onChangeText={setEngineDonorMake}
+                    placeholder="Make"
+                    placeholderTextColor={colors.textSubtle}
+                  />
+                  <TextInput
+                    style={[styles.filter, styles.donorInput]}
+                    value={engineDonorModel}
+                    onChangeText={setEngineDonorModel}
+                    placeholder="Model"
+                    placeholderTextColor={colors.textSubtle}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={handleConfirmEngineSuggestion}
+                >
+                  <Text style={styles.confirmBtnText}>Confirm Selection</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
       {/* Add Transmission Modal */}
-      <Modal visible={addTransOpen} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={addTransOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
         <KeyboardAvoidingView
           style={styles.modal}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -534,7 +697,9 @@ export default function NewBuildScreen() {
               <X color={colors.text} size={20} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.modalSubtitle}>Describe the transmission — AI will identify it.</Text>
+          <Text style={styles.modalSubtitle}>
+            Describe the transmission — AI will identify it.
+          </Text>
           <View style={styles.searchRow}>
             <TextInput
               style={[styles.filter, { flex: 1, marginBottom: 0 }]}
@@ -551,7 +716,10 @@ export default function NewBuildScreen() {
               disabled={transQueryLoading}
             >
               {transQueryLoading ? (
-                <ActivityIndicator color={colors.primaryForeground} size="small" />
+                <ActivityIndicator
+                  color={colors.primaryForeground}
+                  size="small"
+                />
               ) : (
                 <Search color={colors.primaryForeground} size={18} />
               )}
@@ -571,13 +739,54 @@ export default function NewBuildScreen() {
                   {[
                     sug.trans_type,
                     sug.gear_count ? `${sug.gear_count}-speed` : null,
-                  ].filter(Boolean).join(" · ")}
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </Text>
                 {sug.explanation ? (
                   <Text style={styles.suggestionNote}>{sug.explanation}</Text>
                 ) : null}
               </TouchableOpacity>
             ))}
+            {selectedTransSug && (
+              <View style={styles.donorBox}>
+                <Text style={styles.donorLabel}>Donor Vehicle</Text>
+                <Text style={styles.donorHint}>
+                  The vehicle this transmission came from — used to find the
+                  correct factory service manual.
+                </Text>
+                <View style={styles.donorRow}>
+                  <TextInput
+                    style={[styles.filter, styles.donorInput]}
+                    value={transDonorYear}
+                    onChangeText={setTransDonorYear}
+                    placeholder="Year"
+                    placeholderTextColor={colors.textSubtle}
+                    keyboardType="number-pad"
+                  />
+                  <TextInput
+                    style={[styles.filter, styles.donorInput]}
+                    value={transDonorMake}
+                    onChangeText={setTransDonorMake}
+                    placeholder="Make"
+                    placeholderTextColor={colors.textSubtle}
+                  />
+                  <TextInput
+                    style={[styles.filter, styles.donorInput]}
+                    value={transDonorModel}
+                    onChangeText={setTransDonorModel}
+                    placeholder="Model"
+                    placeholderTextColor={colors.textSubtle}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={handleConfirmTransSuggestion}
+                >
+                  <Text style={styles.confirmBtnText}>Confirm Selection</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -594,7 +803,9 @@ function FamilyCard({
   family: EngineFamily;
   onPress: () => void;
 }) {
-  const hps = family.variants.map((v) => v.power_hp).filter(Boolean) as number[];
+  const hps = family.variants
+    .map((v) => v.power_hp)
+    .filter(Boolean) as number[];
   const hpMin = hps.length ? Math.min(...hps) : null;
   const hpMax = hps.length ? Math.max(...hps) : null;
   return (
@@ -610,7 +821,8 @@ function FamilyCard({
       </View>
       <View style={styles.variantBadge}>
         <Text style={styles.variantBadgeText}>
-          {family.variants.length} {family.variants.length === 1 ? "variant" : "variants"}
+          {family.variants.length}{" "}
+          {family.variants.length === 1 ? "variant" : "variants"}
         </Text>
       </View>
     </TouchableOpacity>
@@ -642,8 +854,17 @@ function TransCard({
         <Text style={styles.selectSubtitle}>
           {[
             trans.gear_count ? `${trans.gear_count}-speed` : null,
-            trans.max_torque_capacity_lb_ft ? `${trans.max_torque_capacity_lb_ft} lb-ft max` : null,
-          ].filter(Boolean).join(" · ") || undefined}
+            trans.max_torque_capacity_lb_ft
+              ? `${trans.max_torque_capacity_lb_ft} lb-ft max`
+              : null,
+            trans.drivetrain_type
+              ? trans.drivetrain_type === "4WD"
+                ? "4WD (transfer case)"
+                : trans.drivetrain_type
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || undefined}
         </Text>
       </View>
     </TouchableOpacity>
@@ -651,9 +872,7 @@ function TransCard({
 }
 
 function SectionHeader({ title }: { title: string }) {
-  return (
-    <Text style={styles.sectionHeader}>{title}</Text>
-  );
+  return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
 function SelectCard({
@@ -715,129 +934,283 @@ const styles = StyleSheet.create({
   },
   stepItem: { alignItems: "center", flex: 1 },
   stepDot: {
-    width: 24, height: 24, borderRadius: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.border,
-    justifyContent: "center", alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 4,
   },
-  stepDotActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  stepNum: { fontSize: fontSize.xs, color: colors.textMuted, fontWeight: "600" },
+  stepDotActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  stepNum: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    fontWeight: "600",
+  },
   stepNumActive: { color: colors.primaryForeground },
   stepLabel: { fontSize: 10, color: colors.textMuted },
   stepLabelActive: { color: colors.text, fontWeight: "600" },
   content: { padding: spacing.md, paddingBottom: spacing.xxl },
   sectionTitle: {
-    fontSize: fontSize.lg, fontWeight: "600", color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: "600",
+    color: colors.text,
     marginBottom: spacing.xs,
   },
   sectionSubtitle: {
-    fontSize: fontSize.sm, color: colors.textMuted, marginBottom: spacing.md,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    marginBottom: spacing.md,
   },
   sectionHeader: {
-    fontSize: fontSize.xs, fontWeight: "600", color: colors.textMuted,
-    textTransform: "uppercase", letterSpacing: 0.5,
-    marginTop: spacing.md, marginBottom: spacing.xs,
+    fontSize: fontSize.xs,
+    fontWeight: "600",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
   filter: {
     backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    fontSize: fontSize.sm, color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSize.sm,
+    color: colors.text,
     marginBottom: spacing.md,
   },
   // Family cards
   familyCard: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
-  familyName: { fontSize: fontSize.base, fontWeight: "600", color: colors.text },
+  familyName: {
+    fontSize: fontSize.base,
+    fontWeight: "600",
+    color: colors.text,
+  },
   familyMake: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: 2 },
   familyHp: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: 2 },
   variantBadge: {
-    backgroundColor: colors.surfaceElevated, borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm, paddingVertical: 2,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
   },
   variantBadgeText: { fontSize: fontSize.xs, color: colors.textMuted },
   // Select cards
   selectCard: {
-    flexDirection: "row", alignItems: "center", gap: spacing.md,
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
-  selectCardActive: { borderColor: colors.textMuted, backgroundColor: colors.surfaceElevated },
+  selectCardActive: {
+    borderColor: colors.textMuted,
+    backgroundColor: colors.surfaceElevated,
+  },
   selectCheck: {
-    width: 20, height: 20, borderRadius: 10,
-    borderWidth: 1, borderColor: colors.textSubtle,
-    justifyContent: "center", alignItems: "center",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.textSubtle,
+    justifyContent: "center",
+    alignItems: "center",
   },
   selectTitle: { fontSize: fontSize.sm, fontWeight: "500", color: colors.text },
-  selectSubtitle: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: 2 },
+  selectSubtitle: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
   // Chassis info box
   chassisInfo: {
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   chassisInfoLabel: {
-    fontSize: fontSize.xs, fontWeight: "600", color: colors.textMuted,
-    textTransform: "uppercase", letterSpacing: 0.5, marginBottom: spacing.xs,
+    fontSize: fontSize.xs,
+    fontWeight: "600",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
   },
-  chassisInfoText: { fontSize: fontSize.sm, color: colors.text, marginBottom: spacing.xs },
+  chassisInfoText: {
+    fontSize: fontSize.sm,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
   // Selected info
   selectedInfo: {
-    flexDirection: "row", alignItems: "center", gap: spacing.xs,
-    marginTop: spacing.sm, marginBottom: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   selectedInfoText: { fontSize: fontSize.sm, color: colors.text },
   // Add button
   addBtn: {
-    borderWidth: 1, borderColor: colors.border, borderStyle: "dashed",
-    borderRadius: radius.md, padding: spacing.sm,
-    alignItems: "center", marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    alignItems: "center",
+    marginTop: spacing.sm,
   },
   addBtnText: { fontSize: fontSize.sm, color: colors.textMuted },
   // Review
   reviewRow: {
-    flexDirection: "row", justifyContent: "space-between",
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingVertical: spacing.sm + 2,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   reviewLabel: { fontSize: fontSize.sm, color: colors.textMuted },
   reviewValue: { fontSize: fontSize.sm, fontWeight: "500", color: colors.text },
-  error: { color: colors.destructiveForeground, fontSize: fontSize.sm, marginTop: spacing.md },
+  error: {
+    color: colors.destructiveForeground,
+    fontSize: fontSize.sm,
+    marginTop: spacing.md,
+  },
   footer: {
-    padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border,
+    padding: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
     backgroundColor: colors.background,
   },
   nextBtn: {
-    flexDirection: "row", backgroundColor: colors.primary, borderRadius: radius.md,
-    paddingVertical: spacing.sm + 4, justifyContent: "center", alignItems: "center",
+    flexDirection: "row",
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 4,
+    justifyContent: "center",
+    alignItems: "center",
     gap: spacing.xs,
   },
   nextBtnDisabled: { opacity: 0.5 },
-  nextBtnText: { fontSize: fontSize.base, fontWeight: "600", color: colors.primaryForeground },
+  nextBtnText: {
+    fontSize: fontSize.base,
+    fontWeight: "600",
+    color: colors.primaryForeground,
+  },
   // Modal
   modal: {
-    flex: 1, backgroundColor: colors.background,
-    paddingTop: 60, paddingHorizontal: spacing.md,
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingTop: 60,
+    paddingHorizontal: spacing.md,
   },
   modalHeader: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.xs,
   },
   modalTitle: { fontSize: fontSize.lg, fontWeight: "600", color: colors.text },
-  modalSubtitle: { fontSize: fontSize.sm, color: colors.textMuted, marginBottom: spacing.md },
-  searchRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  modalSubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    marginBottom: spacing.md,
+  },
+  searchRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   searchBtn: {
-    backgroundColor: colors.primary, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, justifyContent: "center", alignItems: "center",
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    justifyContent: "center",
+    alignItems: "center",
   },
   suggestionCard: {
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
-  suggestionTitle: { fontSize: fontSize.sm, fontWeight: "600", color: colors.text },
-  suggestionSub: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: 2 },
-  suggestionNote: { fontSize: fontSize.xs, color: colors.textSubtle, marginTop: 4, fontStyle: "italic" },
+  suggestionTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  suggestionSub: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  suggestionNote: {
+    fontSize: fontSize.xs,
+    color: colors.textSubtle,
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  // Donor vehicle section in modals
+  donorBox: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  donorLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: "600",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  donorHint: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
+  },
+  donorRow: { flexDirection: "row", gap: spacing.xs },
+  donorInput: { flex: 1, marginBottom: spacing.sm },
+  confirmBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2,
+    alignItems: "center",
+  },
+  confirmBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.primaryForeground,
+  },
 });

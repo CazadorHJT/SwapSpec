@@ -80,6 +80,11 @@ export function BuildCreateWizard() {
     EngineIdentifySuggestion[]
   >([]);
   const [engineExistingId, setEngineExistingId] = useState<string | null>(null);
+  const [engineDonorYear, setEngineDonorYear] = useState("");
+  const [engineDonorMake, setEngineDonorMake] = useState("");
+  const [engineDonorModel, setEngineDonorModel] = useState("");
+  const [selectedEngineSug, setSelectedEngineSug] =
+    useState<EngineIdentifySuggestion | null>(null);
 
   // Add transmission dialog
   const [addTransOpen, setAddTransOpen] = useState(false);
@@ -89,6 +94,11 @@ export function BuildCreateWizard() {
     TransmissionIdentifySuggestion[]
   >([]);
   const [transExistingId, setTransExistingId] = useState<string | null>(null);
+  const [transDonorYear, setTransDonorYear] = useState("");
+  const [transDonorMake, setTransDonorMake] = useState("");
+  const [transDonorModel, setTransDonorModel] = useState("");
+  const [selectedTransSug, setSelectedTransSug] =
+    useState<TransmissionIdentifySuggestion | null>(null);
 
   const vehicleParams = {
     year: vYear ? parseInt(vYear) : undefined,
@@ -161,11 +171,17 @@ export function BuildCreateWizard() {
     }
   };
 
-  const handleSelectEngineSuggestion = async (
-    sug: EngineIdentifySuggestion,
-  ) => {
+  const handleSelectEngineSuggestion = (sug: EngineIdentifySuggestion) => {
+    setSelectedEngineSug(sug);
+    setEngineDonorYear(sug.origin_year ? String(sug.origin_year) : "");
+    setEngineDonorMake(sug.origin_make ?? "");
+    setEngineDonorModel(sug.origin_model ?? "");
+  };
+
+  const handleConfirmEngineSuggestion = async () => {
+    if (!selectedEngineSug) return;
+    const sug = selectedEngineSug;
     if (engineExistingId) {
-      // Fetch the existing engine
       try {
         const existing = await api.getEngine(engineExistingId);
         setEngine(existing);
@@ -187,9 +203,11 @@ export function BuildCreateWizard() {
         displacement_liters: sug.displacement_liters,
         power_hp: sug.power_hp,
         torque_lb_ft: sug.torque_lb_ft,
-        origin_year: sug.origin_year,
-        origin_make: sug.origin_make,
-        origin_model: sug.origin_model,
+        origin_year: engineDonorYear
+          ? parseInt(engineDonorYear)
+          : sug.origin_year,
+        origin_make: engineDonorMake || sug.origin_make,
+        origin_model: engineDonorModel || sug.origin_model,
         origin_variant: sug.origin_variant,
       } as Parameters<typeof api.createEngine>[0]);
       setEngine(created);
@@ -217,9 +235,16 @@ export function BuildCreateWizard() {
     }
   };
 
-  const handleSelectTransSuggestion = async (
-    sug: TransmissionIdentifySuggestion,
-  ) => {
+  const handleSelectTransSuggestion = (sug: TransmissionIdentifySuggestion) => {
+    setSelectedTransSug(sug);
+    setTransDonorYear(sug.origin_year ? String(sug.origin_year) : "");
+    setTransDonorMake(sug.origin_make ?? "");
+    setTransDonorModel(sug.origin_model ?? "");
+  };
+
+  const handleConfirmTransSuggestion = async () => {
+    if (!selectedTransSug) return;
+    const sug = selectedTransSug;
     if (transExistingId) {
       try {
         const existing = await api.getTransmission(transExistingId);
@@ -239,9 +264,12 @@ export function BuildCreateWizard() {
         gear_count: sug.gear_count,
         bellhousing_pattern: sug.bellhousing_pattern,
         max_torque_capacity_lb_ft: sug.max_torque_capacity_lb_ft,
-        origin_year: sug.origin_year,
-        origin_make: sug.origin_make,
-        origin_model: sug.origin_model,
+        drivetrain_type: sug.drivetrain_type,
+        origin_year: transDonorYear
+          ? parseInt(transDonorYear)
+          : sug.origin_year,
+        origin_make: transDonorMake || sug.origin_make,
+        origin_model: transDonorModel || sug.origin_model,
         origin_variant: sug.origin_variant,
       } as Parameters<typeof api.createTransmission>[0]);
       setTransmission(created);
@@ -434,6 +462,10 @@ export function BuildCreateWizard() {
                   setEngineQuery("");
                   setEngineSuggestions([]);
                   setEngineExistingId(null);
+                  setSelectedEngineSug(null);
+                  setEngineDonorYear("");
+                  setEngineDonorMake("");
+                  setEngineDonorModel("");
                   setAddEngineOpen(true);
                 }}
               >
@@ -537,6 +569,10 @@ export function BuildCreateWizard() {
                   setTransQuery("");
                   setTransSuggestions([]);
                   setTransExistingId(null);
+                  setSelectedTransSug(null);
+                  setTransDonorYear("");
+                  setTransDonorMake("");
+                  setTransDonorModel("");
                   setAddTransOpen(true);
                 }}
               >
@@ -644,7 +680,7 @@ export function BuildCreateWizard() {
                 {engineSuggestions.map((sug, i) => (
                   <div
                     key={i}
-                    className="rounded-md border p-3 cursor-pointer hover:bg-accent transition-colors"
+                    className={`rounded-md border p-3 cursor-pointer transition-colors ${selectedEngineSug === sug ? "border-primary bg-primary/5" : "hover:bg-accent"}`}
                     onClick={() => handleSelectEngineSuggestion(sug)}
                   >
                     <div className="flex items-center justify-between">
@@ -678,6 +714,55 @@ export function BuildCreateWizard() {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+            {selectedEngineSug && (
+              <div className="rounded-md border p-3 space-y-3 bg-muted/30">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    Donor Vehicle
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    The vehicle this engine came from — used to find the correct
+                    factory service manual.
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs">Year</Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g. 1998"
+                        value={engineDonorYear}
+                        onChange={(e) => setEngineDonorYear(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Make</Label>
+                      <Input
+                        placeholder="e.g. Chevrolet"
+                        value={engineDonorMake}
+                        onChange={(e) => setEngineDonorMake(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Model</Label>
+                      <Input
+                        placeholder="e.g. Camaro"
+                        value={engineDonorModel}
+                        onChange={(e) => setEngineDonorModel(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleConfirmEngineSuggestion}
+                >
+                  Confirm Selection
+                </Button>
               </div>
             )}
           </div>
@@ -720,7 +805,7 @@ export function BuildCreateWizard() {
                 {transSuggestions.map((sug, i) => (
                   <div
                     key={i}
-                    className="rounded-md border p-3 cursor-pointer hover:bg-accent transition-colors"
+                    className={`rounded-md border p-3 cursor-pointer transition-colors ${selectedTransSug === sug ? "border-primary bg-primary/5" : "hover:bg-accent"}`}
                     onClick={() => handleSelectTransSuggestion(sug)}
                   >
                     <div className="flex items-center justify-between">
@@ -754,6 +839,55 @@ export function BuildCreateWizard() {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+            {selectedTransSug && (
+              <div className="rounded-md border p-3 space-y-3 bg-muted/30">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    Donor Vehicle
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    The vehicle this transmission came from — used to find the
+                    correct factory service manual.
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs">Year</Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g. 2002"
+                        value={transDonorYear}
+                        onChange={(e) => setTransDonorYear(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Make</Label>
+                      <Input
+                        placeholder="e.g. Chevrolet"
+                        value={transDonorMake}
+                        onChange={(e) => setTransDonorMake(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Model</Label>
+                      <Input
+                        placeholder="e.g. Camaro"
+                        value={transDonorModel}
+                        onChange={(e) => setTransDonorModel(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleConfirmTransSuggestion}
+                >
+                  Confirm Selection
+                </Button>
               </div>
             )}
           </div>
@@ -868,13 +1002,20 @@ function TransmissionCard({
         {selected && <Check className="h-3 w-3 text-primary-foreground" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-sm">
             {trans.make} {trans.model}
           </span>
           {trans.trans_type && (
             <Badge variant="outline" className="text-xs">
               {trans.trans_type}
+            </Badge>
+          )}
+          {trans.drivetrain_type && (
+            <Badge variant="secondary" className="text-xs">
+              {trans.drivetrain_type === "4WD"
+                ? "4WD (transfer case)"
+                : trans.drivetrain_type}
             </Badge>
           )}
         </div>

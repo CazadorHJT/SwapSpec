@@ -4,12 +4,7 @@ import { Download } from "lucide-react";
 import type { BuildExport, DataSourceType } from "@/lib/types";
 import * as api from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -70,9 +65,8 @@ export function BuildOverviewTab({ data }: { data: BuildExport }) {
   const vehicleSources = (vehicle as Record<string, unknown>)?.data_sources as
     | Record<string, DataSourceType>
     | undefined;
-  const transSources = (transmission as Record<string, unknown>)?.data_sources as
-    | Record<string, DataSourceType>
-    | undefined;
+  const transSources = (transmission as Record<string, unknown>)
+    ?.data_sources as Record<string, DataSourceType> | undefined;
 
   async function handleExportPdf() {
     setDownloading(true);
@@ -120,10 +114,33 @@ export function BuildOverviewTab({ data }: { data: BuildExport }) {
                 <span className="font-medium">Trim:</span> {v.trim}
               </p>
             )}
-            <SpecLine label="Curb Weight" value={v.curb_weight_lbs as number} unit="lbs" source={vehicleSources?.curb_weight_lbs} />
-            <SpecLine label="Bay (LxWxH)" value={v.engine_bay_length_in ? `${v.engine_bay_length_in}x${v.engine_bay_width_in}x${v.engine_bay_height_in}` : undefined} unit="in" source={vehicleSources?.engine_bay_length_in} />
-            <SpecLine label="Ground Clearance" value={v.stock_ground_clearance_in as number} unit="in" source={vehicleSources?.stock_ground_clearance_in} />
-            <SpecLine label="Steering" value={v.steering_type as string} source={vehicleSources?.steering_type} />
+            <SpecLine
+              label="Curb Weight"
+              value={v.curb_weight_lbs as number}
+              unit="lbs"
+              source={vehicleSources?.curb_weight_lbs}
+            />
+            <SpecLine
+              label="Bay (LxWxH)"
+              value={
+                v.engine_bay_length_in
+                  ? `${v.engine_bay_length_in}x${v.engine_bay_width_in}x${v.engine_bay_height_in}`
+                  : undefined
+              }
+              unit="in"
+              source={vehicleSources?.engine_bay_length_in}
+            />
+            <SpecLine
+              label="Ground Clearance"
+              value={v.stock_ground_clearance_in as number}
+              unit="in"
+              source={vehicleSources?.stock_ground_clearance_in}
+            />
+            <SpecLine
+              label="Steering"
+              value={v.steering_type as string}
+              source={vehicleSources?.steering_type}
+            />
           </CardContent>
         </Card>
 
@@ -144,16 +161,66 @@ export function BuildOverviewTab({ data }: { data: BuildExport }) {
                 <span className="font-medium">Variant:</span> {e.variant}
               </p>
             )}
-            <SpecLine label="Power" value={e.power_hp as number} unit="HP" source={engineSources?.power_hp} />
-            <SpecLine label="Torque" value={e.torque_lb_ft as number} unit="lb-ft" source={engineSources?.torque_lb_ft} />
-            <SpecLine label="Displacement" value={e.displacement_liters as number} unit="L" source={engineSources?.displacement_liters} />
-            <SpecLine label="Compression" value={e.compression_ratio as number} unit=":1" source={engineSources?.compression_ratio} />
-            <SpecLine label="Valve Train" value={e.valve_train as string} source={engineSources?.valve_train} />
-            <SpecLine label="Bore/Stroke" value={e.bore_mm ? `${e.bore_mm}/${e.stroke_mm}` : undefined} unit="mm" source={engineSources?.bore_mm} />
-            <SpecLine label="Balance" value={e.balance_type as string} source={engineSources?.balance_type} />
-            <SpecLine label="Redline" value={e.redline_rpm as number} unit="RPM" source={engineSources?.redline_rpm} />
-            <SpecLine label="CAN Bus" value={e.can_bus_protocol as string} source={engineSources?.can_bus_protocol} />
-            <SpecLine label="Oil Pan" value={e.oil_pan_depth_in ? `${e.oil_pan_depth_in}" ${e.oil_pan_type ?? ""}` : undefined} source={engineSources?.oil_pan_depth_in} />
+            <SpecLine
+              label="Power"
+              value={e.power_hp as number}
+              unit="HP"
+              source={engineSources?.power_hp}
+            />
+            <SpecLine
+              label="Torque"
+              value={e.torque_lb_ft as number}
+              unit="lb-ft"
+              source={engineSources?.torque_lb_ft}
+            />
+            <SpecLine
+              label="Displacement"
+              value={e.displacement_liters as number}
+              unit="L"
+              source={engineSources?.displacement_liters}
+            />
+            <SpecLine
+              label="Compression"
+              value={e.compression_ratio as number}
+              unit=":1"
+              source={engineSources?.compression_ratio}
+            />
+            <SpecLine
+              label="Valve Train"
+              value={e.valve_train as string}
+              source={engineSources?.valve_train}
+            />
+            <SpecLine
+              label="Bore/Stroke"
+              value={e.bore_mm ? `${e.bore_mm}/${e.stroke_mm}` : undefined}
+              unit="mm"
+              source={engineSources?.bore_mm}
+            />
+            <SpecLine
+              label="Balance"
+              value={e.balance_type as string}
+              source={engineSources?.balance_type}
+            />
+            <SpecLine
+              label="Redline"
+              value={e.redline_rpm as number}
+              unit="RPM"
+              source={engineSources?.redline_rpm}
+            />
+            <SpecLine
+              label="CAN Bus"
+              value={e.can_bus_protocol as string}
+              source={engineSources?.can_bus_protocol}
+            />
+            <SpecLine
+              label="Oil Pan"
+              value={
+                e.oil_pan_depth_in
+                  ? `${e.oil_pan_depth_in}" ${e.oil_pan_type ?? ""}`
+                  : undefined
+              }
+              source={engineSources?.oil_pan_depth_in}
+            />
           </CardContent>
         </Card>
 
@@ -169,18 +236,44 @@ export function BuildOverviewTab({ data }: { data: BuildExport }) {
                   <span className="font-medium">Make:</span> {t.make as string}
                 </p>
                 <p>
-                  <span className="font-medium">Model:</span> {t.model as string}
+                  <span className="font-medium">Model:</span>{" "}
+                  {t.model as string}
                 </p>
-                <SpecLine label="Type" value={t.trans_type as string} source={transSources?.trans_type} />
-                <SpecLine label="Gears" value={t.gear_count as number} source={transSources?.gear_count} />
+                <SpecLine
+                  label="Type"
+                  value={t.trans_type as string}
+                  source={transSources?.trans_type}
+                />
+                {typeof t.drivetrain_type === "string" && (
+                  <p>
+                    <span className="font-medium">Drivetrain:</span>{" "}
+                    {t.drivetrain_type === "4WD"
+                      ? "4WD (transfer case)"
+                      : t.drivetrain_type}
+                  </p>
+                )}
+                <SpecLine
+                  label="Gears"
+                  value={t.gear_count as number}
+                  source={transSources?.gear_count}
+                />
                 {typeof t.bellhousing_pattern === "string" && (
                   <p>
                     <span className="font-medium">Bellhousing:</span>{" "}
                     {t.bellhousing_pattern}
                   </p>
                 )}
-                <SpecLine label="Max Torque" value={t.max_torque_capacity_lb_ft as number} unit="lb-ft" source={transSources?.max_torque_capacity_lb_ft} />
-                <SpecLine label="Input Spline" value={t.input_shaft_spline as string} source={transSources?.input_shaft_spline} />
+                <SpecLine
+                  label="Max Torque"
+                  value={t.max_torque_capacity_lb_ft as number}
+                  unit="lb-ft"
+                  source={transSources?.max_torque_capacity_lb_ft}
+                />
+                <SpecLine
+                  label="Input Spline"
+                  value={t.input_shaft_spline as string}
+                  source={transSources?.input_shaft_spline}
+                />
                 {t.gear_ratios != null && typeof t.gear_ratios === "object" && (
                   <p>
                     <span className="font-medium">Ratios:</span>{" "}
@@ -201,13 +294,16 @@ export function BuildOverviewTab({ data }: { data: BuildExport }) {
       {/* Source legend */}
       <div className="flex gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-green-500" /> MFR = Manufacturer/OEM
+          <span className="inline-block h-2 w-2 rounded-full bg-green-500" />{" "}
+          MFR = Manufacturer/OEM
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-blue-500" /> API = External API
+          <span className="inline-block h-2 w-2 rounded-full bg-blue-500" /> API
+          = External API
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-yellow-500" /> USER = User Contributed
+          <span className="inline-block h-2 w-2 rounded-full bg-yellow-500" />{" "}
+          USER = User Contributed
         </span>
       </div>
 

@@ -33,6 +33,9 @@ export function TransmissionTable({
           <TableRow>
             <TableHead>Make</TableHead>
             <TableHead>Model</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Drivetrain</TableHead>
+            <TableHead>Speeds</TableHead>
             <TableHead>Bellhousing</TableHead>
             <TableHead className="text-right">Weight (lbs)</TableHead>
           </TableRow>
@@ -47,15 +50,32 @@ export function TransmissionTable({
               <TableCell>{t.make}</TableCell>
               <TableCell>{t.model}</TableCell>
               <TableCell>
+                {t.trans_type ? (
+                  <Badge variant="outline">{t.trans_type}</Badge>
+                ) : (
+                  "—"
+                )}
+              </TableCell>
+              <TableCell>
+                {t.drivetrain_type ? (
+                  <Badge variant="secondary">
+                    {t.drivetrain_type === "4WD"
+                      ? "4WD (transfer case)"
+                      : t.drivetrain_type}
+                  </Badge>
+                ) : (
+                  "—"
+                )}
+              </TableCell>
+              <TableCell>{t.gear_count ?? "—"}</TableCell>
+              <TableCell>
                 {t.bellhousing_pattern ? (
                   <Badge variant="outline">{t.bellhousing_pattern}</Badge>
                 ) : (
                   "—"
                 )}
               </TableCell>
-              <TableCell className="text-right">
-                {t.weight ?? "—"}
-              </TableCell>
+              <TableCell className="text-right">{t.weight ?? "—"}</TableCell>
             </TableRow>
           ))}
         </TableBody>

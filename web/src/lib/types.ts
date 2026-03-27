@@ -180,6 +180,11 @@ export interface EngineCreate {
   make: string;
   model: string;
   variant?: string;
+  engine_family?: string;
+  origin_year?: number;
+  origin_make?: string;
+  origin_model?: string;
+  origin_variant?: string;
   dimensions_h?: number;
   dimensions_w?: number;
   dimensions_l?: number;
@@ -227,6 +232,7 @@ export interface Transmission {
   id: string;
   make: string;
   model: string;
+  drivetrain_type?: string;
   origin_year?: number;
   origin_make?: string;
   origin_model?: string;
@@ -257,6 +263,11 @@ export interface Transmission {
 export interface TransmissionCreate {
   make: string;
   model: string;
+  drivetrain_type?: string;
+  origin_year?: number;
+  origin_make?: string;
+  origin_model?: string;
+  origin_variant?: string;
   dimensions_h?: number;
   dimensions_w?: number;
   dimensions_l?: number;
@@ -420,6 +431,7 @@ export interface TransmissionIdentifySuggestion {
   gear_count?: number;
   bellhousing_pattern?: string;
   max_torque_capacity_lb_ft?: number;
+  drivetrain_type?: string;
   origin_year?: number;
   origin_make?: string;
   origin_model?: string;

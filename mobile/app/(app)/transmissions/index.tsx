@@ -14,7 +14,9 @@ import type { Transmission } from "@/lib/types";
 
 export default function TransmissionsScreen() {
   const [make, setMake] = useState("");
-  const { data, loading, error, refetch } = useTransmissions({ make: make || undefined });
+  const { data, loading, error, refetch } = useTransmissions({
+    make: make || undefined,
+  });
 
   return (
     <View style={styles.container}>
@@ -63,16 +65,25 @@ export default function TransmissionsScreen() {
                 {item.make} {item.model}
               </Text>
               <View style={styles.specRow}>
-                {item.trans_type && (
-                  <SpecChip label={item.trans_type} />
-                )}
+                {item.trans_type && <SpecChip label={item.trans_type} />}
                 {item.gear_count && (
                   <SpecChip label={`${item.gear_count}-speed`} />
                 )}
                 {item.max_torque_capacity_lb_ft && (
-                  <SpecChip label={`${item.max_torque_capacity_lb_ft} lb-ft max`} />
+                  <SpecChip
+                    label={`${item.max_torque_capacity_lb_ft} lb-ft max`}
+                  />
                 )}
               </View>
+              {item.drivetrain_type && (
+                <SpecChip
+                  label={
+                    item.drivetrain_type === "4WD"
+                      ? "4WD (transfer case)"
+                      : item.drivetrain_type
+                  }
+                />
+              )}
               {item.bellhousing_pattern && (
                 <Text style={styles.cardMeta}>
                   Bellhousing: {item.bellhousing_pattern}
@@ -137,12 +148,28 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.text,
   },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: spacing.md },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: spacing.md,
+  },
   errorText: { color: colors.destructiveForeground, fontSize: fontSize.sm },
-  retryBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  retryBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+  },
   retryText: { color: colors.text, fontSize: fontSize.sm },
   list: { padding: spacing.md, gap: spacing.sm },
-  empty: { color: colors.textMuted, fontSize: fontSize.sm, textAlign: "center", marginTop: spacing.xl },
+  empty: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    textAlign: "center",
+    marginTop: spacing.xl,
+  },
   card: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -151,7 +178,16 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  cardTitle: { fontSize: fontSize.sm, fontWeight: "600", color: colors.text, marginBottom: spacing.xs },
-  cardMeta: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: spacing.xs },
+  cardTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  cardMeta: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+  },
   specRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
 });
