@@ -217,12 +217,88 @@ async def test_create_engine_with_data_sources(client: AsyncClient):
 
 @pytest.mark.anyio
 async def test_create_transmission_with_specs(client: AsyncClient):
-    """Test creating a transmission with new spec fields."""
+    """Test creating a transmission including the drivetrain_type field."""
     headers = {"Authorization": f"Bearer {FAKE_ACCESS_TOKEN}"}
 
-    # Check if there's a transmission create endpoint
-    response = await client.get("/api/transmissions")
+    create_response = await client.post(
+        "/api/transmissions",
+        json={
+            "make": "Tremec",
+            "model": "T56 Magnum",
+            "trans_type": "Manual",
+            "gear_count": 6,
+            "drivetrain_type": "RWD",
+            "origin_year": 2002,
+            "origin_make": "Chevrolet",
+            "origin_model": "Camaro",
+        },
+        headers=headers,
+    )
+    assert create_response.status_code == 201
+    data = create_response.json()
+    assert data["drivetrain_type"] == "RWD"
+    assert data["origin_year"] == 2002
+    assert data["origin_make"] == "Chevrolet"
+    assert data["origin_model"] == "Camaro"
+
+
+@pytest.mark.anyio
+async def test_identify_engine_self_reference_validation(client: AsyncClient):
+    """AI identify: origin_model matching model name should be nulled out."""
+    headers = {"Authorization": f"Bearer {FAKE_ACCESS_TOKEN}"}
+
+    # Mock the Anthropic client to return a self-referencing suggestion
+    mock_msg = MagicMock()
+    mock_msg.content = [MagicMock(text='[{"make":"Toyota","model":"2JZ-GTE","origin_year":1993,"origin_make":"Toyota","origin_model":"2JZ-GTE","confidence":"high"}]')]
+
+    mock_anthropic = MagicMock()
+    mock_anthropic.messages.create.return_value = mock_msg
+
+    with patch("anthropic.Anthropic", return_value=mock_anthropic), \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        response = await client.post(
+            "/api/engines/identify",
+            json={"query": "2jz-gte"},
+            headers=headers,
+        )
+
     assert response.status_code == 200
+    suggestions = response.json()["suggestions"]
+    assert len(suggestions) >= 1
+    # Self-referencing origin_model should be nulled
+    assert suggestions[0]["origin_model"] is None
+    assert suggestions[0]["origin_year"] is None
+    assert suggestions[0]["origin_make"] is None
+
+
+@pytest.mark.anyio
+async def test_identify_transmission_self_reference_validation(client: AsyncClient):
+    """AI identify: origin_model matching transmission model name should be nulled out."""
+    headers = {"Authorization": f"Bearer {FAKE_ACCESS_TOKEN}"}
+
+    mock_msg = MagicMock()
+    mock_msg.content = [MagicMock(text='[{"make":"Toyota","model":"R150","origin_year":1993,"origin_make":"Toyota","origin_model":"R150","drivetrain_type":"4WD","confidence":"high"}]')]
+
+    mock_anthropic = MagicMock()
+    mock_anthropic.messages.create.return_value = mock_msg
+
+    with patch("anthropic.Anthropic", return_value=mock_anthropic), \
+         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        response = await client.post(
+            "/api/transmissions/identify",
+            json={"query": "r150 toyota"},
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    suggestions = response.json()["suggestions"]
+    assert len(suggestions) >= 1
+    # Self-referencing origin_model should be nulled
+    assert suggestions[0]["origin_model"] is None
+    assert suggestions[0]["origin_year"] is None
+    assert suggestions[0]["origin_make"] is None
+    # drivetrain_type should pass through unchanged
+    assert suggestions[0]["drivetrain_type"] == "4WD"
 
 
 @pytest.mark.anyio
