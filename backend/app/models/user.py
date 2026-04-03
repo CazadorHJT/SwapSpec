@@ -9,6 +9,11 @@ def utc_now():
     return datetime.now(timezone.utc)
 
 
+class UserRole(str, enum.Enum):
+    user = "user"
+    admin = "admin"
+
+
 class AccountType(str, enum.Enum):
     hobbyist = "hobbyist"
     professional = "professional"
@@ -30,6 +35,9 @@ class User(Base):
     )
     subscription_status: Mapped[SubscriptionStatus] = mapped_column(
         Enum(SubscriptionStatus), default=SubscriptionStatus.free
+    )
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole), default=UserRole.user, server_default="user"
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 

@@ -1,10 +1,12 @@
 // ── Auth ──────────────────────────────────────────────
 export type AccountType = "hobbyist" | "professional";
 export type SubscriptionStatus = "free" | "per_project" | "subscription";
+export type UserRole = "user" | "admin";
 
 export interface User {
   id: string;
   email: string;
+  role: UserRole;
   account_type: AccountType;
   subscription_status: SubscriptionStatus;
   created_at: string;
@@ -162,6 +164,9 @@ export interface Engine {
   ecu_type?: string;
   starter_position?: string;
   distributor_type?: string;
+  // Quality / admin
+  quality_status?: QualityStatus;
+  contributor_id?: string;
   // Data provenance
   data_sources?: DataSources;
   data_source_notes?: string;
@@ -246,6 +251,9 @@ export interface Transmission {
   crossmember_drop_in?: number;
   tailhousing_length_in?: number;
   speedometer_drive?: string;
+  // Quality / admin
+  quality_status?: QualityStatus;
+  contributor_id?: string;
   // Data provenance
   data_sources?: DataSources;
   data_source_notes?: string;

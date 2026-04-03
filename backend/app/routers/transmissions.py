@@ -3,18 +3,18 @@ import logging
 import os
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from typing import Optional, List
 from app.database import get_db
 from app.models.transmission import Transmission
 from app.models.engine import Engine
-from app.models.vehicle import Vehicle
+from app.models.vehicle import Vehicle, QualityStatus
 from app.models.user import User
 from app.schemas.transmission import (
     TransmissionCreate, TransmissionResponse, TransmissionList,
     TransmissionGroups, TransmissionIdentifyResponse, TransmissionIdentifySuggestion,
 )
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, get_optional_user
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +28,21 @@ async def list_transmissions(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
-    """List all transmissions with optional filtering."""
+    """List transmissions. Authenticated users see approved + their own pending."""
     query = select(Transmission)
+
+    # Visibility filter
+    if current_user:
+        query = query.where(
+            or_(
+                Transmission.quality_status == QualityStatus.approved,
+                (Transmission.quality_status == QualityStatus.pending) & (Transmission.contributor_id == current_user.id),
+            )
+        )
+    else:
+        query = query.where(Transmission.quality_status == QualityStatus.approved)
 
     if make:
         query = query.where(Transmission.make.ilike(f"%{make}%"))
@@ -279,6 +291,7 @@ async def create_transmission(
 ):
     """Create a new transmission entry (requires authentication)."""
     transmission = Transmission(**transmission_data.model_dump())
+    transmission.contributor_id = current_user.id
     db.add(transmission)
     await db.commit()
     await db.refresh(transmission)

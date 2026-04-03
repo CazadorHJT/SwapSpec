@@ -1,13 +1,19 @@
 // ── Auth ──────────────────────────────────────────────
 export type AccountType = "hobbyist" | "professional";
 export type SubscriptionStatus = "free" | "per_project" | "subscription";
+export type UserRole = "user" | "admin";
 
 export interface User {
   id: string;
   email: string;
+  role: UserRole;
   account_type: AccountType;
   subscription_status: SubscriptionStatus;
   created_at: string;
+}
+
+export interface UserWithBuildCount extends User {
+  build_count: number;
 }
 
 export interface Token {
@@ -129,6 +135,8 @@ export interface Engine {
   id: string;
   make: string;
   model: string;
+  quality_status?: QualityStatus;
+  contributor_id?: string;
   variant?: string;
   engine_family?: string;
   origin_year?: number;
@@ -236,6 +244,8 @@ export interface Transmission {
   id: string;
   make: string;
   model: string;
+  quality_status?: QualityStatus;
+  contributor_id?: string;
   drivetrain_type?: string;
   origin_year?: number;
   origin_make?: string;
@@ -447,4 +457,19 @@ export interface TransmissionIdentifySuggestion {
 export interface TransmissionIdentifyResponse {
   suggestions: TransmissionIdentifySuggestion[];
   existing_match_id?: string;
+}
+
+// ── Admin ─────────────────────────────────────────────
+export interface AdminStats {
+  pending_vehicles: number;
+  pending_engines: number;
+  pending_transmissions: number;
+  total_users: number;
+  total_builds: number;
+}
+
+export interface AdminUserUpdate {
+  role?: UserRole;
+  account_type?: AccountType;
+  subscription_status?: SubscriptionStatus;
 }

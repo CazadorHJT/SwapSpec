@@ -9,6 +9,7 @@ from app.models.engine import Engine
 from app.models.transmission import Transmission
 from app.models.vehicle import Vehicle
 from app.models.vehicle import QualityStatus
+from app.models.user import User, UserRole
 
 
 def _mfr_sources(*fields: str) -> dict:
@@ -907,6 +908,43 @@ async def main():
         if added_engines == 0 and added_trans == 0 and added_vehicles == 0:
             print("(All seed data already present)")
 
+        # Backfill quality_status=approved for any seeded engines/transmissions that defaulted to pending
+        print("Backfilling quality_status=approved for seeded catalog items...")
+        from sqlalchemy import update
+        await session.execute(
+            update(Engine).where(Engine.quality_status == QualityStatus.pending, Engine.contributor_id == None).values(quality_status=QualityStatus.approved)
+        )
+        await session.execute(
+            update(Transmission).where(Transmission.quality_status == QualityStatus.pending, Transmission.contributor_id == None).values(quality_status=QualityStatus.approved)
+        )
+        await session.commit()
+        print("Done.")
+
+
+async def promote_admin(email: str):
+    """Promote an existing user to admin by email.
+    Usage: python seed_data.py promote admin@example.com
+    The user must already exist (register through the app first).
+    """
+    from sqlalchemy import select, update
+    await init_db()
+    async with async_session_maker() as session:
+        result = await session.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if not user:
+            print(f"No user found with email: {email}")
+            print("Register through the app first, then run this command.")
+            return
+        await session.execute(
+            update(User).where(User.email == email).values(role=UserRole.admin)
+        )
+        await session.commit()
+        print(f"✓ {email} is now an admin.")
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import sys
+    if len(sys.argv) == 3 and sys.argv[1] == "promote":
+        asyncio.run(promote_admin(sys.argv[2]))
+    else:
+        asyncio.run(main())

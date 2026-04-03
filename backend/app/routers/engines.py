@@ -3,16 +3,17 @@ import logging
 import os
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from typing import Optional, List
 from app.database import get_db
 from app.models.engine import Engine
 from app.models.user import User
+from app.models.vehicle import QualityStatus
 from app.schemas.engine import (
     EngineCreate, EngineResponse, EngineList,
     EngineFamily, EngineFamilyVariant, EngineIdentifyResponse, EngineIdentifySuggestion,
 )
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, get_optional_user
 from app.services.spec_lookup import SpecLookupService
 
 logger = logging.getLogger(__name__)
@@ -29,9 +30,21 @@ async def list_engines(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
-    """List all engines with optional filtering."""
+    """List engines. Authenticated users see approved engines + their own pending engines."""
     query = select(Engine)
+
+    # Visibility filter: approved engines visible to all; pending only to contributor
+    if current_user:
+        query = query.where(
+            or_(
+                Engine.quality_status == QualityStatus.approved,
+                (Engine.quality_status == QualityStatus.pending) & (Engine.contributor_id == current_user.id),
+            )
+        )
+    else:
+        query = query.where(Engine.quality_status == QualityStatus.approved)
 
     if make:
         query = query.where(Engine.make.ilike(f"%{make}%"))
@@ -193,6 +206,7 @@ async def create_engine(
 
     engine = Engine(**engine_data.model_dump())
     engine.data_sources = initial_sources if initial_sources else None
+    engine.contributor_id = current_user.id
     db.add(engine)
     await db.commit()
     await db.refresh(engine)

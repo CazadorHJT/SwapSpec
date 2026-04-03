@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, EmailStr
 from datetime import datetime
 from typing import Optional
-from app.models.user import AccountType, SubscriptionStatus
+from app.models.user import AccountType, SubscriptionStatus, UserRole
 
 
 class UserBase(BaseModel):
@@ -22,6 +22,7 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    role: UserRole
     account_type: AccountType
     subscription_status: SubscriptionStatus
     created_at: datetime

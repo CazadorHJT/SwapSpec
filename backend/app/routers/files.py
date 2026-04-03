@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from app.models.user import User
 from app.schemas.files import FileUploadResponse
 from app.services.storage import StorageService
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, get_admin_user
 
 router = APIRouter(prefix="/api/files", tags=["Files"])
 
@@ -80,9 +80,9 @@ async def upload_mesh_file(
 @router.delete("/{path:path}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_file(
     path: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
-    """Delete a file by its path. Requires authentication."""
+    """Delete a file by its path. Requires admin role."""
     storage = _get_storage()
     deleted = storage.delete_file(path)
     if not deleted:

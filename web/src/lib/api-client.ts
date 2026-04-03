@@ -1,6 +1,7 @@
 import type {
   Token,
   User,
+  UserWithBuildCount,
   LoginRequest,
   RegisterRequest,
   VehicleList,
@@ -26,6 +27,9 @@ import type {
   AdvisorResponse,
   ChatHistoryResponse,
   FileUploadResponse,
+  AdminStats,
+  AdminUserUpdate,
+  QualityStatus,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -345,6 +349,143 @@ export async function uploadMesh(file: File): Promise<FileUploadResponse> {
 
 export async function deleteFile(path: string): Promise<void> {
   return request<void>(`/api/files/${path}`, { method: "DELETE" });
+}
+
+// ── Admin ─────────────────────────────────────────────
+
+export async function getAdminStats(): Promise<AdminStats> {
+  return request<AdminStats>("/api/admin/stats");
+}
+
+// Vehicles
+export async function getAdminVehicles(
+  status?: QualityStatus,
+): Promise<VehicleList> {
+  const qs = status ? `?quality_status=${status}` : "";
+  return request<VehicleList>(`/api/admin/vehicles${qs}`);
+}
+export async function updateVehicleStatus(
+  id: string,
+  quality_status: QualityStatus,
+): Promise<Vehicle> {
+  return request<Vehicle>(`/api/admin/vehicles/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ quality_status }),
+  });
+}
+export async function adminCreateVehicle(
+  data: VehicleCreate,
+): Promise<Vehicle> {
+  return request<Vehicle>("/api/admin/vehicles", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+export async function adminUpdateVehicle(
+  id: string,
+  data: VehicleCreate,
+): Promise<Vehicle> {
+  return request<Vehicle>(`/api/admin/vehicles/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+export async function adminDeleteVehicle(id: string): Promise<void> {
+  return request<void>(`/api/admin/vehicles/${id}`, { method: "DELETE" });
+}
+
+// Engines
+export async function getAdminEngines(
+  status?: QualityStatus,
+): Promise<EngineList> {
+  const qs = status ? `?quality_status=${status}` : "";
+  return request<EngineList>(`/api/admin/engines${qs}`);
+}
+export async function updateEngineStatus(
+  id: string,
+  quality_status: QualityStatus,
+): Promise<Engine> {
+  return request<Engine>(`/api/admin/engines/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ quality_status }),
+  });
+}
+export async function adminCreateEngine(data: EngineCreate): Promise<Engine> {
+  return request<Engine>("/api/admin/engines", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+export async function adminUpdateEngine(
+  id: string,
+  data: EngineCreate,
+): Promise<Engine> {
+  return request<Engine>(`/api/admin/engines/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+export async function adminDeleteEngine(id: string): Promise<void> {
+  return request<void>(`/api/admin/engines/${id}`, { method: "DELETE" });
+}
+
+// Transmissions
+export async function getAdminTransmissions(
+  status?: QualityStatus,
+): Promise<TransmissionList> {
+  const qs = status ? `?quality_status=${status}` : "";
+  return request<TransmissionList>(`/api/admin/transmissions${qs}`);
+}
+export async function updateTransmissionStatus(
+  id: string,
+  quality_status: QualityStatus,
+): Promise<Transmission> {
+  return request<Transmission>(`/api/admin/transmissions/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ quality_status }),
+  });
+}
+export async function adminCreateTransmission(
+  data: TransmissionCreate,
+): Promise<Transmission> {
+  return request<Transmission>("/api/admin/transmissions", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+export async function adminUpdateTransmission(
+  id: string,
+  data: TransmissionCreate,
+): Promise<Transmission> {
+  return request<Transmission>(`/api/admin/transmissions/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+export async function adminDeleteTransmission(id: string): Promise<void> {
+  return request<void>(`/api/admin/transmissions/${id}`, { method: "DELETE" });
+}
+
+// Users
+export async function getAdminUsers(): Promise<UserWithBuildCount[]> {
+  return request<UserWithBuildCount[]>("/api/admin/users");
+}
+export async function adminUpdateUser(
+  id: string,
+  data: AdminUserUpdate,
+): Promise<User> {
+  return request<User>(`/api/admin/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+export async function getAdminUserBuilds(userId: string): Promise<BuildList> {
+  return request<BuildList>(`/api/admin/users/${userId}/builds`);
+}
+
+// Builds
+export async function adminDeleteBuild(id: string): Promise<void> {
+  return request<void>(`/api/admin/builds/${id}`, { method: "DELETE" });
 }
 
 export { ApiError };

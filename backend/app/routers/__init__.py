@@ -8,6 +8,7 @@ from app.routers.advisor import router as advisor_router
 from app.routers.files import router as files_router
 from app.routers.specs import router as specs_router
 from app.routers.manuals import router as manuals_router
+from app.routers.admin import router as admin_router
 
 __all__ = [
     "auth_router",
@@ -20,4 +21,5 @@ __all__ = [
     "files_router",
     "specs_router",
     "manuals_router",
+    "admin_router",
 ]

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional, List
+from app.models.vehicle import QualityStatus
 
 
 class EngineBase(BaseModel):
@@ -73,6 +74,8 @@ class EngineResponse(EngineBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    quality_status: Optional[QualityStatus] = None
+    contributor_id: Optional[str] = None
     created_at: datetime
 
 

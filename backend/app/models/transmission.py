@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import String, Float, Integer, DateTime, JSON, Text
+from sqlalchemy import String, Float, Integer, DateTime, JSON, Text, ForeignKey, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
+from app.models.vehicle import QualityStatus
 
 
 def utc_now():
@@ -49,5 +50,10 @@ class Transmission(Base):
     origin_year:  Mapped[Optional[int]] = mapped_column(Integer,     nullable=True)
     origin_make:  Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     origin_model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    quality_status: Mapped[QualityStatus] = mapped_column(
+        Enum(QualityStatus, create_type=False), default=QualityStatus.pending, server_default="approved"
+    )
+    contributor_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
