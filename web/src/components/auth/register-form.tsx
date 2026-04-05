@@ -45,7 +45,7 @@ export function RegisterForm() {
     <div className="flex min-h-screen">
       {/* Left: branding panel */}
       <div
-        className="relative hidden flex-col items-center p-12 lg:flex lg:w-1/2"
+        className="relative hidden items-center justify-center p-12 lg:flex lg:w-1/2"
         style={{
           background:
             "radial-gradient(ellipse at top left, oklch(0.65 0.18 245 / 0.18) 0%, transparent 60%), oklch(0.12 0 0)",
@@ -68,25 +68,26 @@ export function RegisterForm() {
           }}
         />
 
-        {/* Wordmark — big, centered at top */}
-        <Link
-          href="/"
-          className="relative text-5xl font-bold text-white tracking-tight"
-        >
-          SwapSpec
-        </Link>
+        {/* Centered content group */}
+        <div className="relative flex flex-col items-center gap-8 text-center">
+          <Link
+            href="/"
+            className="text-5xl font-bold text-white tracking-tight"
+          >
+            SwapSpec
+          </Link>
 
-        {/* Tagline — moved up from bottom, centered */}
-        <div className="relative mt-auto mb-16 text-center">
-          <p className="mb-2 text-3xl font-bold leading-snug text-white">
-            Your next build
-            <br />
-            starts here.
-          </p>
-          <p className="text-sm text-white/50">
-            Join SwapSpec and plan your engine swap with AI, 3D models, and
-            real compatibility data.
-          </p>
+          <div>
+            <p className="mb-2 text-3xl font-bold leading-snug text-white">
+              Your next build
+              <br />
+              starts here.
+            </p>
+            <p className="text-sm text-white/50">
+              Join SwapSpec and plan your engine swap with AI, 3D models, and
+              real compatibility data.
+            </p>
+          </div>
         </div>
       </div>
 
