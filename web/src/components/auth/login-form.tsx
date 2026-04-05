@@ -62,7 +62,7 @@ export function LoginForm() {
         {/* Wordmark — top, centered */}
         <Link
           href="/"
-          className="relative self-end text-4xl font-bold text-white tracking-tight"
+          className="relative self-start text-4xl font-bold text-white tracking-tight"
         >
           SwapSpec
         </Link>
