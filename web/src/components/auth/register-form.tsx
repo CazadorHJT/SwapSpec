@@ -79,9 +79,7 @@ export function RegisterForm() {
         {/* Tagline — vertically centered in remaining space */}
         <div className="relative my-auto text-center">
           <p className="mb-2 text-3xl font-bold leading-snug text-white">
-            Your next build
-            <br />
-            starts here.
+            Your next build starts here.
           </p>
           <p className="text-sm text-white/50">
             Join SwapSpec and plan your engine swap with AI, 3D models, and
