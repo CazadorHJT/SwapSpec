@@ -36,7 +36,7 @@ export function LoginForm() {
     <div className="flex min-h-screen">
       {/* Left: branding panel */}
       <div
-        className="relative hidden items-center justify-center p-12 lg:flex lg:w-1/2"
+        className="relative hidden flex-col items-center p-12 lg:flex lg:w-1/2"
         style={{
           background:
             "radial-gradient(ellipse at top left, oklch(0.65 0.18 245 / 0.18) 0%, transparent 60%), oklch(0.12 0 0)",
@@ -59,25 +59,24 @@ export function LoginForm() {
           }}
         />
 
-        {/* Centered content group */}
-        <div className="relative flex flex-col items-center gap-8 text-center">
-          <Link
-            href="/"
-            className="text-5xl font-bold text-white tracking-tight"
-          >
-            SwapSpec
-          </Link>
+        {/* Wordmark — top, centered */}
+        <Link
+          href="/"
+          className="relative text-4xl font-bold text-white tracking-tight"
+        >
+          SwapSpec
+        </Link>
 
-          <div>
-            <p className="mb-2 text-3xl font-bold leading-snug text-white">
-              Plan your swap.
-              <br />
-              Build with confidence.
-            </p>
-            <p className="text-sm text-white/50">
-              AI-powered engine swap planning with 3D fitment visualization.
-            </p>
-          </div>
+        {/* Tagline — vertically centered in remaining space */}
+        <div className="relative my-auto text-center">
+          <p className="mb-2 text-3xl font-bold leading-snug text-white">
+            Plan your swap.
+            <br />
+            Build with confidence.
+          </p>
+          <p className="text-sm text-white/50">
+            AI-powered engine swap planning with 3D fitment visualization.
+          </p>
         </div>
       </div>
 
