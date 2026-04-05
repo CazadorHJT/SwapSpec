@@ -23,7 +23,7 @@ const tiers = [
   },
   {
     name: "Hobbyist",
-    price: { monthly: 29, yearly: 23 },
+    price: { monthly: 39, yearly: 31 },
     description: "Everything you need for your next build.",
     features: [
       "1 active build at a time",

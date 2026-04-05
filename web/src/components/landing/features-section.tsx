@@ -56,8 +56,8 @@ function CardFace({
       >
         <Icon className="h-8 w-8" style={{ color: "oklch(0.65 0.18 245)" }} />
       </div>
-      <h3 className="text-xl font-semibold">{title}</h3>
-      <p className="mt-2 text-xs text-muted-foreground">Hover to learn more</p>
+      <h3 className="text-3xl font-bold tracking-tight">{title}</h3>
+      <p className="mt-3 text-sm text-muted-foreground">Hover to learn more</p>
     </div>
   );
 }
@@ -65,14 +65,14 @@ function CardFace({
 function CardBack({ description }: { description: string }) {
   return (
     <div
-      className="flex h-full flex-col items-center justify-center rounded-2xl border p-8 text-center"
+      className="flex h-full flex-col items-center justify-center rounded-2xl border p-10 text-center"
       style={{
         background:
           "radial-gradient(circle at center, oklch(0.65 0.18 245 / 0.08), transparent 70%)",
         borderColor: "oklch(0.65 0.18 245 / 0.4)",
       }}
     >
-      <p className="text-sm leading-relaxed text-muted-foreground">
+      <p className="text-base leading-relaxed text-muted-foreground">
         {description}
       </p>
     </div>
