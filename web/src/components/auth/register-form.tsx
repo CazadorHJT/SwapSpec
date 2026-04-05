@@ -71,7 +71,7 @@ export function RegisterForm() {
         {/* Wordmark — top, centered */}
         <Link
           href="/"
-          className="relative self-start text-4xl font-bold text-white tracking-tight"
+          className="relative text-4xl font-bold text-white tracking-tight"
         >
           SwapSpec
         </Link>
