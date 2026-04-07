@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { useApi } from "@/hooks/use-api";
 import * as api from "@/lib/api-client";
 import { BuildDetailHeader } from "@/components/builds/build-detail-header";
@@ -16,6 +16,7 @@ export default function BuildDetailPage({
   params: Promise<{ buildId: string }>;
 }) {
   const { buildId } = use(params);
+  const [activeTab, setActiveTab] = useState("overview");
   const { data, loading, error } = useApi(
     () => api.getBuildExport(buildId),
     [buildId],
@@ -42,12 +43,28 @@ export default function BuildDetailPage({
     <div className="space-y-6">
       <BuildDetailHeader data={data} />
 
-      <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="viewer">3D Viewer</TabsTrigger>
-          <TabsTrigger value="advisor">Advisor</TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        {/* Sticky tab bar */}
+        <div className="sticky top-14 z-10 -mx-6 px-6 md:-mx-8 md:px-8 border-b bg-background">
+          <TabsList className="h-10 bg-transparent p-0 gap-0 rounded-none w-full justify-start">
+            {(["overview", "viewer", "advisor"] as const).map((tab) => {
+              const labels: Record<string, string> = {
+                overview: "Overview",
+                viewer: "3D Viewer",
+                advisor: "Advisor",
+              };
+              return (
+                <TabsTrigger
+                  key={tab}
+                  value={tab}
+                  className="relative h-10 rounded-none border-b-2 border-transparent px-4 text-sm font-medium text-muted-foreground transition-colors data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none bg-transparent hover:text-foreground"
+                >
+                  {labels[tab]}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="mt-4">
           <BuildOverviewTab data={data} />

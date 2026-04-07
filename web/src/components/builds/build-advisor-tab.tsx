@@ -128,13 +128,7 @@ export function BuildAdvisorTab({ buildId }: { buildId: string }) {
       style={{ height: "calc(100vh - 280px)", minHeight: 480 }}
     >
       {/* Header */}
-      <div
-        className="flex shrink-0 items-center justify-between rounded-t-xl px-4 py-3"
-        style={{
-          background: "oklch(0.155 0.01 245)",
-          borderBottom: "1px solid oklch(1 0 0 / 8%)",
-        }}
-      >
+      <div className="flex shrink-0 items-center justify-between rounded-t-xl px-4 py-3 bg-sidebar border-b">
         <div className="flex items-center gap-2">
           <div
             className="flex h-7 w-7 items-center justify-center rounded-lg"
@@ -146,15 +140,6 @@ export function BuildAdvisorTab({ buildId }: { buildId: string }) {
             />
           </div>
           <span className="text-sm font-semibold">Build Advisor</span>
-          <span
-            className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-            style={{
-              background: "oklch(0.65 0.18 245 / 15%)",
-              color: "oklch(0.65 0.18 245)",
-            }}
-          >
-            AI
-          </span>
         </div>
 
         <Dialog open={clearOpen} onOpenChange={setClearOpen}>
