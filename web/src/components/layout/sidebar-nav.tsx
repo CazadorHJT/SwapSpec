@@ -10,8 +10,9 @@ import {
   Upload,
   Shield,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+
+const BLUE = "oklch(0.65 0.18 245)";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,42 +26,62 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
 
+  const allLinks =
+    user?.role === "admin"
+      ? [...links, { href: "/admin", label: "Admin", icon: Shield }]
+      : links;
+
   return (
-    <nav className="flex flex-col gap-1">
-      {links.map(({ href, label, icon: Icon }) => {
+    <nav className="flex flex-col gap-0.5">
+      {allLinks.map(({ href, label, icon: Icon }) => {
         const active = pathname.startsWith(href);
         return (
           <Link
             key={href}
             href={href}
             onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            className="relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150"
+            style={
               active
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-            )}
+                ? {
+                    background: "oklch(0.65 0.18 245 / 12%)",
+                    color: BLUE,
+                  }
+                : {
+                    color: "oklch(0.65 0 0)",
+                  }
+            }
+            onMouseEnter={(e) => {
+              if (!active) {
+                (e.currentTarget as HTMLElement).style.background =
+                  "oklch(0.65 0.18 245 / 6%)";
+                (e.currentTarget as HTMLElement).style.color =
+                  "oklch(0.85 0 0)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!active) {
+                (e.currentTarget as HTMLElement).style.background = "";
+                (e.currentTarget as HTMLElement).style.color =
+                  "oklch(0.65 0 0)";
+              }
+            }}
           >
-            <Icon className="h-4 w-4" />
+            {/* Left accent bar */}
+            {active && (
+              <span
+                className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full"
+                style={{ background: BLUE }}
+              />
+            )}
+            <Icon
+              className="h-5 w-5 shrink-0"
+              style={{ color: active ? BLUE : undefined }}
+            />
             {label}
           </Link>
         );
       })}
-      {user?.role === "admin" && (
-        <Link
-          href="/admin"
-          onClick={onNavigate}
-          className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-            pathname.startsWith("/admin")
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-          )}
-        >
-          <Shield className="h-4 w-4" />
-          Admin
-        </Link>
-      )}
     </nav>
   );
 }
