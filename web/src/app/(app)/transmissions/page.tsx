@@ -4,7 +4,7 @@ import { useTransmissions } from "@/hooks/use-transmissions";
 import { TransmissionCatalog } from "@/components/transmissions/transmission-catalog";
 
 export default function TransmissionsPage() {
-  const { data, loading } = useTransmissions({ limit: 500 });
+  const { data, loading } = useTransmissions();
 
   return (
     <div className="space-y-6">
