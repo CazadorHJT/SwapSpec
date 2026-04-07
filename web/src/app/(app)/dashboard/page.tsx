@@ -78,7 +78,7 @@ export default function DashboardPage() {
             icon={FileEdit}
             label="Draft"
             value={draft}
-            color="oklch(0.70 0.14 55)"
+            color="oklch(0.65 0.18 245)"
           />
         </div>
       )}

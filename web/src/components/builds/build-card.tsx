@@ -11,14 +11,14 @@ const STATUS_COLORS: Record<
   { bar: string; badge: string; text: string }
 > = {
   complete: {
+    bar: "oklch(0.70 0.15 145)",
+    badge: "oklch(0.18 0.04 145)",
+    text: "oklch(0.70 0.12 145)",
+  },
+  draft: {
     bar: "oklch(0.65 0.18 245)",
     badge: "oklch(0.20 0.04 245)",
     text: "oklch(0.75 0.12 245)",
-  },
-  draft: {
-    bar: "oklch(0.70 0.14 55)",
-    badge: "oklch(0.20 0.04 55)",
-    text: "oklch(0.75 0.12 55)",
   },
 };
 
