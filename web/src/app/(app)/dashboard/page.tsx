@@ -48,17 +48,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Builds</h1>
-        <Link href="/builds/new">
-          <Button style={{ background: "oklch(0.65 0.18 245)", color: "#fff" }}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Build
-          </Button>
-        </Link>
-      </div>
-
       {/* Stats strip */}
       {!loading && total > 0 && (
         <div className="grid grid-cols-3 gap-3">

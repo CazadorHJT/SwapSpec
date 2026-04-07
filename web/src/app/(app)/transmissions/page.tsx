@@ -8,7 +8,6 @@ export default function TransmissionsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Transmissions</h1>
       <TransmissionCatalog
         transmissions={data?.transmissions ?? []}
         loading={loading}

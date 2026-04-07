@@ -35,19 +35,12 @@ function usePageTitle(): string {
 
 function SidebarBrand() {
   return (
-    <div className="flex h-14 items-center gap-2 px-4">
-      <div className="flex flex-col">
-        <span className="text-lg font-bold leading-none tracking-tight">
-          <span style={{ color: "oklch(0.65 0.18 245)" }}>Swap</span>
-          <span className="text-foreground">Spec</span>
-        </span>
-        <span
-          className="mt-0.5 text-[9px] font-semibold uppercase tracking-widest"
-          style={{ color: "oklch(0.65 0.18 245 / 70%)" }}
-        >
-          Beta
-        </span>
-      </div>
+    <div className="flex h-14 items-center justify-between px-4">
+      <span className="text-lg font-bold leading-none tracking-tight">
+        <span style={{ color: "oklch(0.65 0.18 245)" }}>Swap</span>
+        <span className="text-foreground">Spec</span>
+      </span>
+      <ThemeToggle />
     </div>
   );
 }
@@ -57,22 +50,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full flex-col">
       <SidebarBrand />
 
-      {/* Divider */}
-      <div
-        className="mx-4 mb-2"
-        style={{ height: 1, background: "oklch(1 0 0 / 6%)" }}
-      />
+      <div className="mx-4 border-t border-border/30" />
 
-      {/* Nav */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
         <SidebarNav onNavigate={onNavigate} />
       </div>
 
-      {/* User section */}
-      <div
-        className="mx-4 mt-2"
-        style={{ height: 1, background: "oklch(1 0 0 / 6%)" }}
-      />
+      <div className="mx-4 border-t border-border/30" />
       <div className="p-4">
         <UserMenu />
       </div>
@@ -90,8 +74,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside
         className="hidden w-64 shrink-0 md:flex md:flex-col"
         style={{
-          background: "oklch(0.155 0.01 245)",
-          borderRight: "1px solid oklch(1 0 0 / 8%)",
+          background: "var(--color-sidebar)",
+          borderRight:
+            "1px solid color-mix(in oklch, var(--color-border) 50%, transparent)",
         }}
       >
         <SidebarContent />
@@ -100,13 +85,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main content column */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Desktop top bar */}
-        <header
-          className="hidden h-14 shrink-0 items-center justify-between px-6 md:flex"
-          style={{ borderBottom: "1px solid oklch(1 0 0 / 8%)" }}
-        >
-          <h2 className="text-sm font-semibold text-foreground/70">
-            {pageTitle}
-          </h2>
+        <header className="hidden h-14 shrink-0 items-center justify-between border-b px-6 md:flex">
+          <h2 className="text-base font-bold">{pageTitle}</h2>
           <div className="flex items-center gap-2">
             <Link href="/builds/new">
               <Button
@@ -117,15 +97,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 New Build
               </Button>
             </Link>
-            <ThemeToggle />
           </div>
         </header>
 
         {/* Mobile header */}
-        <header
-          className="flex h-14 shrink-0 items-center gap-3 px-4 md:hidden"
-          style={{ borderBottom: "1px solid oklch(1 0 0 / 8%)" }}
-        >
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4 md:hidden">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
@@ -135,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <SheetContent
               side="left"
               className="w-64 p-0"
-              style={{ background: "oklch(0.155 0.01 245)" }}
+              style={{ background: "var(--color-sidebar)" }}
             >
               <SheetTitle className="sr-only">Navigation</SheetTitle>
               <SidebarContent onNavigate={() => setMobileOpen(false)} />
@@ -155,7 +131,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Plus className="h-4 w-4" />
               </Button>
             </Link>
-            <ThemeToggle />
           </div>
         </header>
 

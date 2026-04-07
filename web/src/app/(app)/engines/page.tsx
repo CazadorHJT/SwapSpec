@@ -8,7 +8,6 @@ export default function EnginesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Engines</h1>
       <EngineCatalog engines={data?.engines ?? []} loading={loading} />
     </div>
   );

@@ -10,9 +10,8 @@ import {
   Upload,
   Shield,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
-
-const BLUE = "oklch(0.65 0.18 245)";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -40,44 +39,17 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             key={href}
             href={href}
             onClick={onNavigate}
-            className="relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150"
-            style={
+            className={cn(
+              "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
               active
-                ? {
-                    background: "oklch(0.65 0.18 245 / 12%)",
-                    color: BLUE,
-                  }
-                : {
-                    color: "oklch(0.65 0 0)",
-                  }
-            }
-            onMouseEnter={(e) => {
-              if (!active) {
-                (e.currentTarget as HTMLElement).style.background =
-                  "oklch(0.65 0.18 245 / 6%)";
-                (e.currentTarget as HTMLElement).style.color =
-                  "oklch(0.85 0 0)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!active) {
-                (e.currentTarget as HTMLElement).style.background = "";
-                (e.currentTarget as HTMLElement).style.color =
-                  "oklch(0.65 0 0)";
-              }
-            }}
-          >
-            {/* Left accent bar */}
-            {active && (
-              <span
-                className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full"
-                style={{ background: BLUE }}
-              />
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
-            <Icon
-              className="h-5 w-5 shrink-0"
-              style={{ color: active ? BLUE : undefined }}
-            />
+          >
+            {active && (
+              <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+            )}
+            <Icon className="h-5 w-5 shrink-0" />
             {label}
           </Link>
         );
