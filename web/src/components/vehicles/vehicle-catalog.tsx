@@ -95,9 +95,12 @@ function VehicleCard({
                   ? "destructive"
                   : "secondary"
             }
-            className="capitalize"
           >
-            {vehicle.quality_status}
+            {vehicle.quality_status === "approved"
+              ? "Verified"
+              : vehicle.quality_status === "rejected"
+                ? "Rejected"
+                : "Pending"}
           </Badge>
         </div>
       </div>

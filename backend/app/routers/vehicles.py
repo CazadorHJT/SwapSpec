@@ -15,6 +15,16 @@ vin_decoder = VINDecoderService()
 spec_lookup = SpecLookupService()
 
 
+def _normalize(s: str | None) -> str | None:
+    """Title-case a string only if it is entirely uppercase or entirely lowercase."""
+    if not s:
+        return s
+    stripped = s.strip()
+    if stripped == stripped.upper() or stripped == stripped.lower():
+        return stripped.title()
+    return stripped
+
+
 @router.get("", response_model=VehicleList)
 async def list_vehicles(
     year: Optional[int] = Query(None, description="Filter by model year"),
@@ -106,6 +116,12 @@ async def create_vehicle(
         if existing:
             response.status_code = status.HTTP_200_OK
             return existing
+
+    # Normalize make/model/trim to consistent title-case
+    vehicle_data.make = _normalize(vehicle_data.make) or vehicle_data.make
+    vehicle_data.model = _normalize(vehicle_data.model) or vehicle_data.model
+    if vehicle_data.trim:
+        vehicle_data.trim = _normalize(vehicle_data.trim) or vehicle_data.trim
 
     # Tag user-provided spec fields
     user_fields = {

@@ -22,14 +22,7 @@ export function UserMenu() {
   return (
     <div className="flex items-center gap-3">
       <Avatar className="h-8 w-8 shrink-0">
-        <AvatarFallback
-          className="text-xs font-bold"
-          style={{
-            background: "oklch(0.20 0.04 245)",
-            color: "oklch(0.75 0.12 245)",
-            border: "1px solid oklch(0.35 0.08 245)",
-          }}
-        >
+        <AvatarFallback className="text-xs font-bold dark:bg-[oklch(0.20_0.04_245)] dark:text-[oklch(0.75_0.12_245)] dark:border-[oklch(0.35_0.08_245)] bg-transparent text-foreground border border-foreground/30">
           {initials}
         </AvatarFallback>
       </Avatar>
