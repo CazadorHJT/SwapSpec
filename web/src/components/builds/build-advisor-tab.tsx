@@ -124,11 +124,11 @@ export function BuildAdvisorTab({ buildId }: { buildId: string }) {
 
   return (
     <div
-      className="flex flex-col rounded-xl border"
+      className="flex flex-col rounded-xl border bg-card"
       style={{ height: "calc(100vh - 280px)", minHeight: 480 }}
     >
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between rounded-t-xl px-4 py-3 bg-sidebar border-b">
+      <div className="flex shrink-0 items-center justify-between rounded-t-xl px-4 py-3 bg-card border-b">
         <div className="flex items-center gap-2">
           <div
             className="flex h-7 w-7 items-center justify-center rounded-lg"

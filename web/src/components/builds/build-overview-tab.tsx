@@ -81,9 +81,9 @@ function SpecPanel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border">
+    <div className="overflow-hidden rounded-xl border bg-card">
       {/* Panel header */}
-      <div className="flex items-center gap-2.5 px-4 py-3 bg-sidebar border-b">
+      <div className="flex items-center gap-2.5 px-4 py-3 bg-card border-b">
         <div
           className="flex h-7 w-7 items-center justify-center rounded-lg"
           style={{ background: "oklch(0.65 0.18 245 / 12%)" }}
@@ -323,8 +323,8 @@ export function BuildOverviewTab({ data }: { data: BuildExport }) {
       {recommendations && recommendations.length > 0 && (
         <>
           <Separator />
-          <div className="overflow-hidden rounded-xl border">
-            <div className="flex items-center gap-2.5 px-4 py-3 bg-sidebar border-b">
+          <div className="overflow-hidden rounded-xl border bg-card">
+            <div className="flex items-center gap-2.5 px-4 py-3 bg-card border-b">
               <div
                 className="flex h-7 w-7 items-center justify-center rounded-lg"
                 style={{ background: "oklch(0.70 0.14 55 / 15%)" }}
