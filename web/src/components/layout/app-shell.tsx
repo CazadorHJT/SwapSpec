@@ -46,22 +46,49 @@ function SidebarBrand() {
   );
 }
 
+// Full sidebar — used in the mobile Sheet (always expanded)
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <SidebarBrand />
-
       <div className="mx-4 border-t border-border/30" />
-
       <div className="flex-1 overflow-y-auto px-3 py-2">
         <SidebarNav onNavigate={onNavigate} />
       </div>
-
       <div className="mx-4 border-t border-border/30" />
       <div className="p-4">
         <UserMenu />
       </div>
     </div>
+  );
+}
+
+// Desktop sidebar — brand always visible, nav/user reveal on hover
+function DesktopSidebar() {
+  return (
+    <aside
+      className="group/sidebar hidden w-64 shrink-0 md:flex md:flex-col"
+      style={{
+        background: "var(--color-sidebar)",
+        borderRight:
+          "1px solid color-mix(in oklch, var(--color-border) 50%, transparent)",
+      }}
+    >
+      {/* Always-visible brand header */}
+      <SidebarBrand />
+
+      {/* Nav + user — hidden by default, revealed on hover */}
+      <div className="overflow-hidden max-h-0 group-hover/sidebar:max-h-[700px] transition-[max-height] duration-300 ease-in-out">
+        <div className="mx-4 border-t border-border/30" />
+        <div className="overflow-y-auto px-3 py-2">
+          <SidebarNav />
+        </div>
+        <div className="mx-4 border-t border-border/30" />
+        <div className="p-4">
+          <UserMenu />
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -73,26 +100,17 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Desktop sidebar */}
-      <aside
-        className="hidden w-64 shrink-0 md:flex md:flex-col"
-        style={{
-          background: "var(--color-sidebar)",
-          borderRight:
-            "1px solid color-mix(in oklch, var(--color-border) 50%, transparent)",
-        }}
-      >
-        <SidebarContent />
-      </aside>
+      {/* Desktop collapsible sidebar */}
+      <DesktopSidebar />
 
       {/* Main content column */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Desktop top bar */}
         <header className="hidden h-14 shrink-0 items-center border-b px-6 md:flex">
           {hasTabs ? (
-            /* 3-column layout: title | tabs | button */
+            /* 3-column layout: [spacer] | tabs (centered) | button */
             <>
-              <h2 className="w-32 shrink-0 text-base font-bold">{pageTitle}</h2>
+              <div className="w-32 shrink-0" />
               <div className="flex flex-1 items-center justify-center gap-1">
                 {tabs.map((tab) => {
                   const isActive = activeTab === tab.value;

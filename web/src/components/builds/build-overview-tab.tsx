@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Car, Cog, GitFork, Lightbulb } from "lucide-react";
+import { Download, Car, Cog, ArrowLeftRight, Lightbulb } from "lucide-react";
 import type { BuildExport, DataSourceType } from "@/lib/types";
 import * as api from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -240,7 +240,7 @@ export function BuildOverviewTab({ data }: { data: BuildExport }) {
         </SpecPanel>
 
         {/* Transmission */}
-        <SpecPanel icon={GitFork} title="Transmission">
+        <SpecPanel icon={ArrowLeftRight} title="Transmission">
           {t ? (
             <>
               <SpecRow label="Make" value={t.make as string} />
