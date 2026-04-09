@@ -1,14 +1,21 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect } from "react";
 import { useApi } from "@/hooks/use-api";
 import * as api from "@/lib/api-client";
 import { BuildDetailHeader } from "@/components/builds/build-detail-header";
 import { BuildOverviewTab } from "@/components/builds/build-overview-tab";
 import { BuildAdvisorTab } from "@/components/builds/build-advisor-tab";
 import { BuildViewerTab } from "@/components/builds/build-viewer-tab";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTopBarTabs } from "@/lib/top-bar-context";
+
+const BUILD_TABS = [
+  { value: "overview", label: "Overview" },
+  { value: "viewer", label: "3D Viewer" },
+  { value: "advisor", label: "Advisor" },
+];
 
 export default function BuildDetailPage({
   params,
@@ -16,11 +23,17 @@ export default function BuildDetailPage({
   params: Promise<{ buildId: string }>;
 }) {
   const { buildId } = use(params);
-  const [activeTab, setActiveTab] = useState("overview");
+  const { setTabs, clearTabs, activeTab } = useTopBarTabs();
   const { data, loading, error } = useApi(
     () => api.getBuildExport(buildId),
     [buildId],
   );
+
+  useEffect(() => {
+    setTabs(BUILD_TABS, "overview");
+    return () => clearTabs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
@@ -43,38 +56,16 @@ export default function BuildDetailPage({
     <div className="space-y-6">
       <BuildDetailHeader data={data} />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        {/* Sticky tab bar */}
-        <div className="sticky top-14 z-10 -mx-6 px-6 md:-mx-8 md:px-8 border-b bg-background">
-          <TabsList className="h-10 bg-transparent p-0 gap-0 rounded-none w-full justify-start">
-            {(["overview", "viewer", "advisor"] as const).map((tab) => {
-              const labels: Record<string, string> = {
-                overview: "Overview",
-                viewer: "3D Viewer",
-                advisor: "Advisor",
-              };
-              return (
-                <TabsTrigger
-                  key={tab}
-                  value={tab}
-                  className="relative h-10 rounded-none border-b-2 border-transparent px-4 text-sm font-medium text-muted-foreground transition-colors data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none bg-transparent hover:text-foreground"
-                >
-                  {labels[tab]}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </div>
-
-        <TabsContent value="overview" className="mt-4">
+      <Tabs value={activeTab || "overview"}>
+        <TabsContent value="overview" className="mt-0">
           <BuildOverviewTab data={data} />
         </TabsContent>
 
-        <TabsContent value="viewer" className="mt-4">
+        <TabsContent value="viewer" className="mt-0">
           <BuildViewerTab data={data} />
         </TabsContent>
 
-        <TabsContent value="advisor" className="mt-4">
+        <TabsContent value="advisor" className="mt-0">
           <BuildAdvisorTab buildId={buildId} />
         </TabsContent>
       </Tabs>

@@ -14,6 +14,7 @@ import {
   SheetTrigger,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { TopBarTabsProvider, useTopBarTabs } from "@/lib/top-bar-context";
 
 const ROUTE_TITLES: Record<string, string> = {
   "/dashboard": "My Builds",
@@ -64,9 +65,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function AppShellInner({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pageTitle = usePageTitle();
+  const { tabs, activeTab, setActiveTab } = useTopBarTabs();
+  const hasTabs = tabs.length > 0;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -85,19 +88,68 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main content column */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Desktop top bar */}
-        <header className="hidden h-14 shrink-0 items-center justify-between border-b px-6 md:flex">
-          <h2 className="text-base font-bold">{pageTitle}</h2>
-          <div className="flex items-center gap-2">
-            <Link href="/builds/new">
-              <Button
-                size="sm"
-                style={{ background: "oklch(0.65 0.18 245)", color: "#fff" }}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                New Build
-              </Button>
-            </Link>
-          </div>
+        <header className="hidden h-14 shrink-0 items-center border-b px-6 md:flex">
+          {hasTabs ? (
+            /* 3-column layout: title | tabs | button */
+            <>
+              <h2 className="w-32 shrink-0 text-base font-bold">{pageTitle}</h2>
+              <div className="flex flex-1 items-center justify-center gap-1">
+                {tabs.map((tab) => {
+                  const isActive = activeTab === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      onClick={() => setActiveTab(tab.value)}
+                      className="relative h-14 px-4 text-sm font-medium transition-colors"
+                      style={{
+                        color: isActive
+                          ? "oklch(0.65 0.18 245)"
+                          : "var(--color-muted-foreground)",
+                        borderBottom: isActive
+                          ? "2px solid oklch(0.65 0.18 245)"
+                          : "2px solid transparent",
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex w-32 shrink-0 items-center justify-end gap-2">
+                <Link href="/builds/new">
+                  <Button
+                    size="sm"
+                    style={{
+                      background: "oklch(0.65 0.18 245)",
+                      color: "#fff",
+                    }}
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    New Build
+                  </Button>
+                </Link>
+              </div>
+            </>
+          ) : (
+            /* Default: title left, button right */
+            <>
+              <h2 className="flex-1 text-base font-bold">{pageTitle}</h2>
+              <div className="flex items-center gap-2">
+                <Link href="/builds/new">
+                  <Button
+                    size="sm"
+                    style={{
+                      background: "oklch(0.65 0.18 245)",
+                      color: "#fff",
+                    }}
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    New Build
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
         </header>
 
         {/* Mobile header */}
@@ -122,6 +174,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span style={{ color: "oklch(0.65 0.18 245)" }}>Swap</span>Spec
           </span>
 
+          {hasTabs && (
+            <div className="flex flex-1 items-center justify-center gap-1">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    onClick={() => setActiveTab(tab.value)}
+                    className="px-3 text-xs font-medium transition-colors"
+                    style={{
+                      color: isActive
+                        ? "oklch(0.65 0.18 245)"
+                        : "var(--color-muted-foreground)",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="ml-auto flex items-center gap-2">
             <Link href="/builds/new">
               <Button
@@ -140,5 +214,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <TopBarTabsProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </TopBarTabsProvider>
   );
 }
