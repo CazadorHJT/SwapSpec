@@ -69,94 +69,30 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "";
 
+  const sidebarBorderRight =
+    "1px solid color-mix(in oklch, var(--color-border) 50%, transparent)";
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* ── Thin icon sidebar — always visible on desktop ─────────── */}
-      <div
-        className="group/sidebar relative z-30 hidden w-14 shrink-0 flex-col md:flex"
-        style={{
-          background: "var(--color-sidebar)",
-          borderRight:
-            "1px solid color-mix(in oklch, var(--color-border) 50%, transparent)",
-        }}
-      >
-        {/* Brand row: "S" visible in thin state */}
-        <div className="flex h-14 shrink-0 items-center justify-center overflow-hidden border-b">
-          <span
-            className="text-xl font-bold"
-            style={{ color: "oklch(0.65 0.18 245)" }}
-          >
-            S
-          </span>
-        </div>
-
-        {/* Icon strip: icons positioned at pl-6 (24px) to match expanded nav */}
-        <div className="flex flex-1 flex-col gap-0.5 py-2">
-          {allNavIcons.map(({ href, icon: Icon }) => {
-            const active = pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "relative flex items-center rounded-lg py-2.5 pl-6 pr-3 transition-colors",
-                  active
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                {active && (
-                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
-                )}
-                <Icon className="h-5 w-5 shrink-0" />
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* User avatar pinned to bottom */}
-        <div className="flex shrink-0 justify-center border-t py-3">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-[10px] font-bold dark:bg-[oklch(0.20_0.04_245)] dark:text-[oklch(0.75_0.12_245)] dark:border-[oklch(0.35_0.08_245)] bg-transparent text-foreground border border-foreground/30">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-        </div>
-
-        {/* ── Full sidebar overlay (on hover of group/sidebar) ──── */}
+    <div className="flex h-screen flex-col overflow-hidden">
+      {/* ── Desktop top bar ─────────────────────────────────────── */}
+      <header className="hidden h-14 shrink-0 border-b md:flex">
+        {/* Brand section — always visible, matches sidebar overlay width */}
         <div
-          className="invisible absolute left-0 top-0 flex h-full w-56 flex-col opacity-0 shadow-xl transition-all duration-200 group-hover/sidebar:visible group-hover/sidebar:opacity-100"
+          className="flex h-full w-56 shrink-0 items-center justify-between px-4"
           style={{
             background: "var(--color-sidebar)",
-            borderRight:
-              "1px solid color-mix(in oklch, var(--color-border) 50%, transparent)",
+            borderRight: sidebarBorderRight,
           }}
         >
-          {/* Full brand header */}
-          <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-            <span className="text-lg font-bold leading-none tracking-tight">
-              <span style={{ color: "oklch(0.65 0.18 245)" }}>Swap</span>
-              <span className="text-foreground">Spec</span>
-            </span>
-            <ThemeToggle />
-          </div>
-
-          {/* Nav with labels — px-3 container so icons sit at 24px (matching thin strip) */}
-          <div className="flex-1 overflow-y-auto px-3 py-2">
-            <SidebarNav />
-          </div>
-
-          {/* User menu anchored at bottom */}
-          <div className="shrink-0 border-t border-border/30 p-4">
-            <UserMenu />
-          </div>
+          <span className="text-lg font-bold leading-none tracking-tight">
+            <span style={{ color: "oklch(0.65 0.18 245)" }}>Swap</span>
+            <span className="text-foreground">Spec</span>
+          </span>
+          <ThemeToggle />
         </div>
-      </div>
 
-      {/* ── Main content column ─────────────────────────────────── */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Desktop top bar */}
-        <header className="hidden h-14 shrink-0 items-center border-b px-6 md:flex">
+        {/* Page section — tabs or title + action */}
+        <div className="flex flex-1 items-center px-6">
           {hasTabs ? (
             <>
               <div className="flex items-center gap-1">
@@ -213,77 +149,138 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               </Link>
             </>
           )}
-        </header>
+        </div>
+      </header>
 
-        {/* Mobile header */}
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4 md:hidden">
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="left"
-              className="w-64 p-0"
-              style={{ background: "var(--color-sidebar)" }}
-            >
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <div className="flex h-14 items-center justify-between border-b px-4">
-                <span className="text-lg font-bold leading-none tracking-tight">
-                  <span style={{ color: "oklch(0.65 0.18 245)" }}>Swap</span>
-                  <span className="text-foreground">Spec</span>
-                </span>
-                <ThemeToggle />
-              </div>
-              <div className="flex h-[calc(100%-56px)] flex-col">
-                <div className="flex-1 overflow-y-auto px-3 py-2">
-                  <SidebarNav onNavigate={() => setMobileOpen(false)} />
-                </div>
-                <div className="border-t border-border/30 p-4">
-                  <UserMenu />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          <span className="font-bold">
-            <span style={{ color: "oklch(0.65 0.18 245)" }}>Swap</span>Spec
-          </span>
-
-          {hasTabs && (
-            <div className="flex flex-1 items-center gap-1">
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.value;
-                return (
-                  <button
-                    key={tab.value}
-                    onClick={() => setActiveTab(tab.value)}
-                    className="px-2 text-xs font-medium transition-colors"
-                    style={{
-                      color: isActive
-                        ? "oklch(0.65 0.18 245)"
-                        : "var(--color-muted-foreground)",
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
+      {/* ── Mobile header ───────────────────────────────────────── */}
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4 md:hidden">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent
+            side="left"
+            className="w-64 p-0"
+            style={{ background: "var(--color-sidebar)" }}
+          >
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <div className="flex h-14 items-center justify-between border-b px-4">
+              <span className="text-lg font-bold leading-none tracking-tight">
+                <span style={{ color: "oklch(0.65 0.18 245)" }}>Swap</span>
+                <span className="text-foreground">Spec</span>
+              </span>
+              <ThemeToggle />
             </div>
-          )}
+            <div className="flex h-[calc(100%-56px)] flex-col">
+              <div className="flex-1 overflow-y-auto px-3 py-2">
+                <SidebarNav onNavigate={() => setMobileOpen(false)} />
+              </div>
+              <div className="border-t border-border/30 p-4">
+                <UserMenu />
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
 
-          <div className="ml-auto flex items-center gap-2">
-            <Link href="/builds/new">
-              <Button
-                size="sm"
-                style={{ background: "oklch(0.65 0.18 245)", color: "#fff" }}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </Link>
+        <span className="font-bold">
+          <span style={{ color: "oklch(0.65 0.18 245)" }}>Swap</span>Spec
+        </span>
+
+        {hasTabs && (
+          <div className="flex flex-1 items-center gap-1">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.value;
+              return (
+                <button
+                  key={tab.value}
+                  onClick={() => setActiveTab(tab.value)}
+                  className="px-2 text-xs font-medium transition-colors"
+                  style={{
+                    color: isActive
+                      ? "oklch(0.65 0.18 245)"
+                      : "var(--color-muted-foreground)",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
-        </header>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          <Link href="/builds/new">
+            <Button
+              size="sm"
+              style={{ background: "oklch(0.65 0.18 245)", color: "#fff" }}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      </header>
+
+      {/* ── Body: thin sidebar + content ────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Thin icon sidebar — desktop only */}
+        <div
+          className="group/sidebar relative z-30 hidden w-14 shrink-0 flex-col md:flex"
+          style={{
+            background: "var(--color-sidebar)",
+            borderRight: sidebarBorderRight,
+          }}
+        >
+          {/* Icon strip */}
+          <div className="flex flex-1 flex-col gap-0.5 py-2">
+            {allNavIcons.map(({ href, icon: Icon }) => {
+              const active = pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "relative flex items-center rounded-lg py-2.5 pl-6 pr-3 transition-colors",
+                    active
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  {active && (
+                    <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+                  )}
+                  <Icon className="h-5 w-5 shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* User avatar pinned to bottom */}
+          <div className="flex shrink-0 justify-center border-t py-3">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-[10px] font-bold dark:bg-[oklch(0.20_0.04_245)] dark:text-[oklch(0.75_0.12_245)] dark:border-[oklch(0.35_0.08_245)] bg-transparent text-foreground border border-foreground/30">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+
+          {/* ── Full sidebar overlay (on hover of group/sidebar) ── */}
+          <div
+            className="invisible absolute left-0 top-0 flex h-full w-56 flex-col opacity-0 shadow-xl transition-all duration-200 group-hover/sidebar:visible group-hover/sidebar:opacity-100"
+            style={{
+              background: "var(--color-sidebar)",
+              borderRight: sidebarBorderRight,
+            }}
+          >
+            <div className="flex-1 overflow-y-auto px-3 py-2">
+              <SidebarNav />
+            </div>
+            <div className="shrink-0 border-t border-border/30 p-4">
+              <UserMenu />
+            </div>
+          </div>
+        </div>
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
